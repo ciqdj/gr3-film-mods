@@ -10,6 +10,9 @@ use at your own risk. Not affiliated with or endorsed by Ricoh Imaging.
 Film targets are rendered with [spektrafilm](https://github.com/andreavolpato/spektrafilm) LUTs (CC BY-SA 4.0 +
 spektrafilm LUT license): the fitted curves/matrices in `work/**/fits` derive from them; credit spektrafilm, share alike.
 
+License: code and notes MIT (`LICENSE`); the fit data in `work/**/fits` is derived from spektrafilm LUTs and stays
+under their CC BY-SA 4.0 + LUT license terms.
+
 Offline only. Input: `../fwdc239b.bin` (SHA-256 `d6a3c9c2…54bfd4`). Addresses are valid for this file only.
 
 Setup (Python 3.12, needs gr-custom-tool's codec on disk):
