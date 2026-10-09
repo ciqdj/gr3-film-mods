@@ -4,8 +4,17 @@ Custom film looks (Kodak Ektar 100, Gold 200, Portra 400, Fujifilm Pro 400H, Kod
 for the Ricoh GR III firmware 2.10, built by patching the official update file offline. Research notes: `FINDINGS.md`.
 
 **Not included:** any Ricoh firmware, patched images or photos. You need your own `fwdc239b.bin` (2.10) and the
-`gr4_editor` firmware container codec (expected at `../gr-custom-tool`). Flashing modified firmware can brick the camera;
-use at your own risk. Not affiliated with or endorsed by Ricoh Imaging.
+`gr4_editor` firmware container codec (expected at `../gr-custom-tool`).
+
+> [!WARNING]
+> **Disclaimer — use entirely at your own risk.** This is unofficial reverse-engineering research. Flashing modified
+> firmware is risky: it can permanently brick your camera, damage hardware, corrupt images or settings, and will
+> almost certainly void your warranty and any manufacturer support. The patches were checked only by offline
+> emulation and on a single camera; nothing guarantees they work or are safe on yours. The author accepts **no
+> responsibility or liability** for any damage, data loss, bricked or broken devices, or any other consequence of
+> using anything in this repository. If you are not prepared to lose the camera, do not flash it.
+> Not affiliated with, endorsed by or supported by Ricoh Imaging; product names are trademarks of their owners.
+> The software is provided "as is", without warranty of any kind (see `LICENSE`).
 
 Film targets are rendered with [spektrafilm](https://github.com/andreavolpato/spektrafilm) LUTs (CC BY-SA 4.0 +
 spektrafilm LUT license): the fitted curves/matrices in `work/**/fits` derive from them; credit spektrafilm, share alike.
