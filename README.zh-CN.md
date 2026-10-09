@@ -53,11 +53,18 @@ Kodak Vision3 250D）以及 RAW 降噪修改，全部通过离线修补官方升
 >
 > 如中英文版本有出入，以英文版 `README.md` 为准。
 
-胶片目标效果由 [spektrafilm](https://github.com/andreavolpato/spektrafilm) 的 LUT 渲染（CC BY-SA 4.0 +
-spektrafilm LUT 许可）：`work/**/fits` 中拟合出的曲线和矩阵源自这些 LUT；使用时请注明 spektrafilm 并以相同方式共享。
+胶片目标效果由 [spektrafilm](https://github.com/andreavolpato/spektrafilm) 的 LUT 渲染；富士 Classic Neg 除外，
+它拟合的是 [abpy/FujifilmCameraProfiles](https://github.com/abpy/FujifilmCameraProfiles) 中的
+`classic neg_sRGB.cube`。`work/**/fits` 中拟合出的曲线和矩阵源自这些 LUT。
 
-许可：代码和笔记采用 MIT 许可（`LICENSE`）；`work/**/fits` 中的拟合数据源自 spektrafilm LUT，仍遵循其
-CC BY-SA 4.0 + LUT 许可条款。
+许可（按部分）：
+* 代码和笔记：MIT（`LICENSE`）。
+* 源自 spektrafilm LUT 的拟合数据（`work/**/fits`，下列除外）：CC BY-SA 4.0 + spektrafilm LUT 许可条款；
+  请注明 spektrafilm 并以相同方式共享。
+* 源自 FujifilmCameraProfiles LUT 的拟合数据（`work/**/fits/classicneg_*`，即 `spec` 指向该仓库的所有拟合）：
+  [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)；请注明 abpy/FujifilmCameraProfiles，
+  仅限非商业用途，并以相同方式共享。用这些拟合数据生成的固件镜像同样适用：不得出售或用于商业分发。
+* `third_party/gr-custom-tool`：GPL-2.0（见其自带的 `LICENSE`）。
 
 仅限离线使用。输入文件：`../fwdc239b.bin`（SHA-256 `d6a3c9c2…54bfd4`）。所有地址仅对该文件有效。
 

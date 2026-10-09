@@ -53,11 +53,20 @@ clone with `git clone --recursive`, or run `git submodule update --init`. Set `G
 > Not affiliated with, endorsed by or supported by Ricoh Imaging; product names are trademarks of their owners.
 > The software is provided "as is", without warranty of any kind (see `LICENSE`).
 
-Film targets are rendered with [spektrafilm](https://github.com/andreavolpato/spektrafilm) LUTs (CC BY-SA 4.0 +
-spektrafilm LUT license): the fitted curves/matrices in `work/**/fits` derive from them; credit spektrafilm, share alike.
+Film targets are rendered with [spektrafilm](https://github.com/andreavolpato/spektrafilm) LUTs, except Fujifilm
+Classic Neg, which is fitted to the `classic neg_sRGB.cube` LUT of
+[abpy/FujifilmCameraProfiles](https://github.com/abpy/FujifilmCameraProfiles). The fitted curves/matrices in
+`work/**/fits` derive from these LUTs.
 
-License: code and notes MIT (`LICENSE`); the fit data in `work/**/fits` is derived from spektrafilm LUTs and stays
-under their CC BY-SA 4.0 + LUT license terms.
+License (by part):
+* Code and notes: MIT (`LICENSE`).
+* Fit data derived from spektrafilm LUTs (`work/**/fits`, except below): CC BY-SA 4.0 + spektrafilm LUT license
+  terms; credit spektrafilm, share alike.
+* Fit data derived from FujifilmCameraProfiles LUTs (`work/**/fits/classicneg_*`, i.e. every fit whose `spec` points to
+  that repo): [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/); credit
+  abpy/FujifilmCameraProfiles, non-commercial use only, share alike. This also applies to any firmware image built with
+  these fits: don't sell it or distribute it commercially.
+* `third_party/gr-custom-tool`: GPL-2.0 (its own `LICENSE`).
 
 Offline only. Input: `../fwdc239b.bin` (SHA-256 `d6a3c9c2…54bfd4`). Addresses are valid for this file only.
 
