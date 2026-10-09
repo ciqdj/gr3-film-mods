@@ -2,7 +2,7 @@
 (info+0x120..0x13F) = Standard's with the designed OR mask, and no other change outside MultiAxial.
 Usage: verify_ma_probe4.py stock.bin probe4.bin"""
 import sys
-sys.path.insert(0, '../gr-custom-tool')
+import codec_path  # noqa: F401  (gr4_editor from the gr-custom-tool submodule)
 import numpy as np
 from gr4_editor.codec.container import inspect_container, sum32
 from gr4_editor.codec.frames import decode_payload

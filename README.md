@@ -38,8 +38,10 @@ the camera (ISO 200, Daylight WB). "Standard" = the unmodified Standard mode aga
 The model predicts the camera to within ΔE 0.55-0.8, so the v11 numbers should hold, but v11 is not yet camera-tested.
 Most of the remaining error is saturation; details in `FINDINGS.md` §22l-§22m.
 
-**Not included:** any Ricoh firmware, patched images or photos. You need your own `fwdc239b.bin` (2.10) and the
-`gr4_editor` firmware container codec (expected at `../gr-custom-tool`).
+**Not included:** any Ricoh firmware, patched images or photos. You need your own `fwdc239b.bin` (2.10).
+The firmware container codec (`gr4_editor`) comes from [gr-custom-tool](https://github.com/DoYitNow/gr-custom-tool)
+(GPL-2.0, not covered by this repo's MIT license), included as a git submodule in `third_party/gr-custom-tool`:
+clone with `git clone --recursive`, or run `git submodule update --init`. Set `GR_CUSTOM_TOOL` to use another copy.
 
 > [!WARNING]
 > **Disclaimer — use entirely at your own risk.** This is unofficial reverse-engineering research. Flashing modified
@@ -59,13 +61,14 @@ under their CC BY-SA 4.0 + LUT license terms.
 
 Offline only. Input: `../fwdc239b.bin` (SHA-256 `d6a3c9c2…54bfd4`). Addresses are valid for this file only.
 
-Setup (Python 3.12, needs gr-custom-tool's codec on disk):
+Setup (Python 3.12):
 
 ```sh
+git submodule update --init
 python3 -m venv .venv && .venv/bin/pip install capstone numpy unicorn==2.1.4
 mkdir -p work/fw
 .venv/bin/python -I -c "
-import sys; sys.path.insert(0,'../gr-custom-tool')
+import sys; sys.path.insert(0,'.'); import codec_path
 from gr4_editor.codec.container import inspect_container
 from gr4_editor.codec.frames import decode_payload
 d=open('../fwdc239b.bin','rb').read(); i=inspect_container(d)
@@ -75,6 +78,7 @@ open('work/fw/rtos.bin','wb').write(dec[0x10870:0x10c5e30])"
 
 | File | Purpose |
 | --- | --- |
+| `codec_path.py` | Puts the gr-custom-tool submodule (or `$GR_CUSTOM_TOOL`) on `sys.path` for `gr4_editor` |
 | `fw.py` | RTOS address helpers, xrefs (MOVW/MOVT, BL, literal), disassembly |
 | `emu.py` | Unicorn harness (allocator/assert/log/SVC stubs) |
 | `run_tuning.py` | Runs `ImageTuningStill::Make` for a given internal tone slot and returns the R2Y parameter block |

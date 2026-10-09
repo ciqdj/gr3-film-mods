@@ -1,6 +1,6 @@
 """v4: library pointers 6-8 are switched per call; check mode switching in one emulator session
 (Retro -> HDR -> Retro -> Standard -> HDR -> Retro, still and live view) gives each mode its own curves."""
-import sys, json; sys.path.insert(0, '../gr-custom-tool'); sys.path.insert(0, '.')
+import sys, json; sys.path.insert(0, '.'); import codec_path  # noqa: F401
 import numpy as np
 from gr4_editor.codec.container import inspect_container
 from gr4_editor.codec.frames import decode_payload

@@ -3,7 +3,7 @@ untouched modes byte-identical in emulated R2Y output, and for each replaced mod
 R/G/B gamma = fitted curves and the record's look matrix = fitted matrix.
 Usage: verify_films.py vivid.json retro.json hdr.json cross.json stock.bin patched.bin"""
 import sys, json, struct
-sys.path.insert(0, '../gr-custom-tool')
+import codec_path  # noqa: F401  (gr4_editor from the gr-custom-tool submodule)
 import numpy as np
 from gr4_editor.codec.container import inspect_container, sum32
 from gr4_editor.codec.frames import decode_payload, section_rows

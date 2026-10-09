@@ -2,7 +2,7 @@
 only in the CC0CTL byte (info+0x120) and MultiAxial registers, with the designed CC0CTL/selectors/matrices.
 Usage: verify_ma_probe2.py stock.bin probe2.bin"""
 import sys
-sys.path.insert(0, '../gr-custom-tool')
+import codec_path  # noqa: F401  (gr4_editor from the gr-custom-tool submodule)
 import numpy as np
 from gr4_editor.codec.container import inspect_container, sum32
 from gr4_editor.codec.frames import decode_payload

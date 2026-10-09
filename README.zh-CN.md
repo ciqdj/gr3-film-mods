@@ -37,8 +37,10 @@ Kodak Vision3 250D）以及 RAW 降噪修改，全部通过离线修补官方升
 模型对相机的预测误差在 ΔE 0.55–0.8 之内，因此 v11 的数字应当可信，但 v11 尚未实机测试。
 剩余误差主要来自饱和度；详见 `FINDINGS.md` §22l–§22m。
 
-**不包含：** 任何理光固件、修补后的固件镜像或照片。你需要自备 `fwdc239b.bin`（2.10 版），以及
-`gr4_editor` 固件容器编解码器（默认路径 `../gr-custom-tool`）。
+**不包含：** 任何理光固件、修补后的固件镜像或照片。你需要自备 `fwdc239b.bin`（2.10 版）。
+固件容器编解码器（`gr4_editor`）来自 [gr-custom-tool](https://github.com/DoYitNow/gr-custom-tool)
+（GPL-2.0，不在本仓库 MIT 许可范围内），以 git 子模块形式放在 `third_party/gr-custom-tool`：
+请用 `git clone --recursive` 克隆，或运行 `git submodule update --init`。如需使用其他副本，可设置环境变量 `GR_CUSTOM_TOOL`。
 
 > [!WARNING]
 > **免责声明 —— 一切风险由使用者自行承担。** 本项目是非官方的逆向工程研究。刷入修改过的固件存在风险：
@@ -59,13 +61,14 @@ CC BY-SA 4.0 + LUT 许可条款。
 
 仅限离线使用。输入文件：`../fwdc239b.bin`（SHA-256 `d6a3c9c2…54bfd4`）。所有地址仅对该文件有效。
 
-环境准备（Python 3.12，需要本地有 gr-custom-tool 的编解码器）：
+环境准备（Python 3.12）：
 
 ```sh
+git submodule update --init
 python3 -m venv .venv && .venv/bin/pip install capstone numpy unicorn==2.1.4
 mkdir -p work/fw
 .venv/bin/python -I -c "
-import sys; sys.path.insert(0,'../gr-custom-tool')
+import sys; sys.path.insert(0,'.'); import codec_path
 from gr4_editor.codec.container import inspect_container
 from gr4_editor.codec.frames import decode_payload
 d=open('../fwdc239b.bin','rb').read(); i=inspect_container(d)
@@ -75,6 +78,7 @@ open('work/fw/rtos.bin','wb').write(dec[0x10870:0x10c5e30])"
 
 | 文件 | 用途 |
 | --- | --- |
+| `codec_path.py` | 把 gr-custom-tool 子模块（或 `$GR_CUSTOM_TOOL`）加入 `sys.path`，供 `gr4_editor` 使用 |
 | `fw.py` | RTOS 地址辅助工具、交叉引用（MOVW/MOVT、BL、字面量）、反汇编 |
 | `emu.py` | Unicorn 仿真框架（内存分配 / assert / 日志 / SVC 桩函数） |
 | `run_tuning.py` | 针对指定内部色调槽位运行 `ImageTuningStill::Make`，返回 R2Y 参数块 |

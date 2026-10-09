@@ -10,6 +10,7 @@ Usage (library): patch_icons(img, labels) ; preview: make_icons.py out.png
 import struct
 import numpy as np
 from PIL import Image as PImage, ImageDraw, ImageFont
+import codec_path  # noqa: F401
 from gr4_editor.codec.frames import section_rows
 
 CATALOG = 0x550020FC

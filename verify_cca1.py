@@ -7,7 +7,7 @@ complement, as the writer stores it) for the four film tones and identity for ev
 Usage: verify_cca1.py plain.bin cca1.bin mats.json
 """
 import sys, json, struct
-sys.path.insert(0, '../gr-custom-tool')
+import codec_path  # noqa: F401  (gr4_editor from the gr-custom-tool submodule)
 from gr4_editor.codec.container import inspect_container
 from gr4_editor.codec.frames import decode_payload, section_rows
 import run_tuning

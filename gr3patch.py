@@ -1,6 +1,6 @@
 """Offline GR III fw 2.10 look-patch builder (proof of concept, never touches a camera)."""
 import sys, struct, hashlib
-sys.path.insert(0, '../gr-custom-tool')
+import codec_path  # noqa: F401  (gr4_editor from the gr-custom-tool submodule)
 from gr4_editor.codec.container import inspect_container, repair_last_word, sum32
 from gr4_editor.codec.frames import decode_payload, section_rows, framed_container
 from gr4_editor.firmware import _repack_frames
