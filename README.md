@@ -1,5 +1,7 @@
 # GR III fw 2.10 image-pipeline RE tools
 
+**English** | [简体中文](README.zh-CN.md)
+
 Custom film looks (Kodak Ektar 100, Gold 200, Portra 400, Fujifilm Pro 400H, Kodak Vision3 250D) and RAW-NR changes
 for the Ricoh GR III firmware 2.10, built by patching the official update file offline. Research notes: `FINDINGS.md`.
 
@@ -61,4 +63,4 @@ open('work/fw/rtos.bin','wb').write(dec[0x10870:0x10c5e30])"
 | `eval_warm.py` | Warm-hue (yellow/orange) vs overall error of film fits (films v3, FINDINGS §19) |
 | `gr3patch.py` | Proof-of-concept builder: patches a look matrix and repacks a container (reuses stock frames) |
 
-Only the §13 Portra build has been flashed and confirmed on a camera.
+Camera-tested on one GR III (fw 2.10): films v2-v10 and the RAW-NR builds (FINDINGS §14-§22m). Films v11 is untested.
