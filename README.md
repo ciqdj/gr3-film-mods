@@ -5,6 +5,39 @@
 Custom film looks (Kodak Ektar 100, Gold 200, Portra 400, Fujifilm Pro 400H, Kodak Vision3 250D) and RAW-NR changes
 for the Ricoh GR III firmware 2.10, built by patching the official update file offline. Research notes: `FINDINGS.md`.
 
+## What it changes (films v10 / v11 builds)
+
+| Image Control slot | Becomes | Film target (spektrafilm) |
+| --- | --- | --- |
+| Vivid | Ektar 100 | Kodak Ektar 100 on Portra Endura print |
+| Retro | Gold 200 | Kodak Gold 200 on Portra Endura print |
+| HDR Tone | Pro 400H | Fujifilm Pro 400H on Crystal Archive print |
+| Cross Process | Portra 400 | Kodak Portra 400 on Portra Endura print |
+| Bleach Bypass | Vision3 250D | Kodak Vision3 250D on Kodak 2383 print |
+
+* Each film gets its own look matrix, its own R/G/B tone curves and a post-gamma 3x3 colour matrix (applied through the
+  camera's RGB->YCbCr stage, so the Hue setting still works). Mode names and icons are replaced in all 21 UI languages.
+* HDR Tone's local tone mapping and Retro's vignetting are switched off for these modes.
+* RAW (Bayer) noise reduction is off up to ISO 8000 (stock behaviour above that). JPEG High-ISO NR is untouched.
+* Standard, Monotone, Soft/Hard Monotone, Hi-Contrast B&W, Positive Film and Negative Film are byte-identical to stock.
+
+## Current accuracy
+
+Mean ΔE2000 (lower is better) between the camera's JPEG and the spektrafilm target, on a 252-patch hue chart shot on
+the camera (ISO 200, Daylight WB). "Standard" = the unmodified Standard mode against the same target, for scale;
+ΔE ≈ 1 is about a just-noticeable difference.
+
+| Film | Standard vs target | v9 (camera) | v10 (camera) | v11 (predicted) |
+| --- | --- | --- | --- | --- |
+| Ektar 100 | 6.80 | 3.64 | 2.81 | 2.30 |
+| Gold 200 | 6.05 | 3.20 | 2.22 | 1.87 |
+| Pro 400H | 4.48 | 2.91 | 2.08 | 1.95 |
+| Portra 400 | 6.36 | 3.14 | 2.28 | 1.98 |
+| Vision3 250D | 6.59 | – | 2.49 | 2.42 |
+
+The model predicts the camera to within ΔE 0.55-0.8, so the v11 numbers should hold, but v11 is not yet camera-tested.
+Most of the remaining error is saturation; details in `FINDINGS.md` §22l-§22m.
+
 **Not included:** any Ricoh firmware, patched images or photos. You need your own `fwdc239b.bin` (2.10) and the
 `gr4_editor` firmware container codec (expected at `../gr-custom-tool`).
 
