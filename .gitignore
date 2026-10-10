@@ -17,3 +17,8 @@ work/**/luts/
 __pycache__/
 *.pyc
 .DS_Store
+# GR IV firmware-derived tables (Ricoh data) and the third-party RIT spectral database stay local
+work/films_v14/fits/cinema_*.json
+work/films_v16/fits/cinema_*.json
+work/ma_probe5/gr4_*.json
+work/sensor_diff/camspec_database.txt

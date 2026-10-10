@@ -1,0 +1,19 @@
+Films v15 = v14 with the same three replacements in MOVIE mode too (FINDINGS §26):
+  Bleach Bypass  -> Cinema (Yellow)   Retro -> Cinema (Green)   Cross Processing -> Vision3 500T
+in the still, RAW-development and movie lists. Cross Processing is gone everywhere, which freed its curve storage:
+Cinema (Yellow)/(Green) now use their exact GR IV curves, the films are back to v13c's curve precision.
+
+Flash work/films_v15/fwdc239b.bin (SHA-256 50d75f35...b759b3b8dc). Only for a GR III WITHOUT HDF (icons).
+
+BEFORE flashing: switch away from Bleach Bypass / Retro / Cross Processing wherever selected - still sets No0-No2,
+movie sets, Custom settings. (A leftover Cross setting would render as plain Standard.)
+
+Still: same as v14 (list ... Positive Film, Cinema (Yellow), Cinema (Green), HDR Tone, Vision3 500T, films).
+Movie (new):
+1. Movie Image Control list: Standard, Vivid, Monotone, Hard Monotone, Hi-Contrast B&W, Negative Film, Positive Film,
+   Cinema (Yellow), Cinema (Green), Vision3 500T - names and C-Y / C-G / 500T icons.
+2. Select each in movie mode: live view and a short clip look like the still version (not like Standard).
+   This is the part the emulator can't fully prove (movie recording may use its own processing path).
+3. Movie sliders of the three: separate from still ones and from each other.
+4. Optional: playback RAW development with a cinema mode.
+Not ported: GR IV hue-zone correction (MultiAxial) and the Color Tone slider (fixed at 2 of 1-3).

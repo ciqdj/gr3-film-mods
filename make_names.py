@@ -15,6 +15,7 @@ N_LANG = 21
 STRING_ID = dict(vivid=0x10C, retro=0x114, hdr=0x115, cross=0x116, bleach=0x113)
 NAMES = dict(cross='Portra 400', vivid='Ektar 100', retro='Gold 200', hdr='Pro 400H')
 NAMES_V10 = dict(NAMES, bleach='Vision3 250D')
+NAMES_V12 = dict(NAMES, bleach='Classic Neg')
 
 
 def text(img, addr):

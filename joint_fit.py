@@ -14,7 +14,7 @@ sys.path.insert(0, '.')
 import numpy as np
 from scipy.optimize import least_squares
 import cube_fit as cf
-from cube_fit import samples, warm_samples, load_target, model, M_from, de2000, fit_curve, base_gamma
+from cube_fit import samples, warm_samples, target_of, model, M_from, de2000, fit_curve, base_gamma
 
 
 def evaluate(M, cv, C, T):
@@ -36,7 +36,7 @@ def joint(f, boost, iters=6):
     cf.NEUTRAL = 3.0
     L, w, _ = samples(boost=boost)
     M = np.array(f['matrix']); cv = [np.array(c) for c in f['presets'][0]['curves']]
-    T = load_target(f['presets'][0]['spec'], 'vlog', 0); t = T(L)
+    T = target_of(f['presets'][0]); t = T(L)
     before = evaluate(M, cv, np.eye(3), T)
     qC, qM = np.zeros(6), None
     for _ in range(iters):

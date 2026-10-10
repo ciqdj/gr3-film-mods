@@ -1,0 +1,22 @@
+Films v14 = v13c + three stock entries of the still list replaced (FINDINGS §25):
+  Bleach Bypass  -> Cinema (Yellow)   (GR IV look, icon "C-Y")
+  Retro          -> Cinema (Green)    (GR IV look, icon "C-G")
+  Cross Process  -> Vision3 500T      (Kodak 5219 on 2383 print, icon "500T")
+Same 18 entries otherwise (six films after Cross' old position). Movie mode keeps Bleach Bypass / Retro / Cross
+Processing. Films share Standard's sliders as in v13c; the three new modes use the slider storage of the mode they
+replace, so they have their own sliders (whatever you had set on Bleach Bypass / Retro / Cross carries over).
+
+Flash work/films_v14/fwdc239b.bin (SHA-256 e7abf7ba...9b99d1bc). Only for a GR III WITHOUT HDF (icons).
+
+BEFORE flashing: if Bleach Bypass, Retro or Cross Processing is selected (in any Image Control set No0/No1/No2 or a
+Custom setting), switch it to another mode first - those three are no longer in the still list.
+
+1. Image Control list: ... Positive Film, Cinema (Yellow), Cinema (Green), HDR Tone, Vision3 500T, Portra 400 ...
+   Classic Neg; names and icons C-Y / C-G / 500T.
+2. Each new mode: shooting screen name/icon; adjust Saturation on Cinema (Yellow) -> Standard and Cinema (Green)
+   NOT changed; Vision3 500T sliders independent too.
+3. Movie mode: Bleach Bypass / Retro / Cross Processing still there and look as before.
+4. A film from v13 (e.g. Portra 400) still selected after flashing and looks the same.
+5. Optional: playback RAW development with a cinema mode; hue chart shots for scoring.
+Not ported (can't be on GR III): the GR IV's hue-zone correction (MultiAxial) and the Color Tone slider (fixed at
+the GR IV default, 2 of 1-3).

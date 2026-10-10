@@ -1,0 +1,19 @@
+A/B test: our fits vs GR4-LUTSmith 1.3.0's method, same GR III levers (look matrix, 3 curves, matrix after the curves).
+Built on films v13c (make_slots.py, Standard's sliders), with Pro 400H / Vision3 250D swapped out for this test.
+RAW NR off up to ISO 8000 as before.
+
+Flash work/lsab/fwdc239b.bin (SHA-256 c1e7b3a4...4d27ad4d). Only for a GR III without HDF (icons). Keep stock to reflash.
+
+Image Control list after Cross Processing:
+  Portra 400 (P400)   Portra LS (LS400)   Classic Neg (NC)   ClassicNeg LS (LS-NC)   Ektar 100 (E100)   Gold 200 (G200)
+
+Offline mean dE2000 vs the film target (general / warm / ColorChecker / camera chart), as stored in firmware:
+  Portra 400   ours 2.14 / 1.66 / 1.46 / 1.98    LS 2.75 / 1.85 / 1.53 / 2.37
+  Classic Neg  ours 1.51 / 1.16 / 1.14 / 1.33    LS 1.64 / 0.99 / 1.07 / 1.78
+
+Shooting (tripod, same scene, nothing else changed between shots):
+1. Standard's sliders all 0 (the films use Standard's sliders), WB fixed (Daylight or a fixed K), DR/shadow correction off,
+   M mode, ISO 200, RAW+JPG.
+2. One shot each: Standard, Portra 400, Portra LS, Classic Neg, ClassicNeg LS, Standard again.
+   Good scenes: skin + sky + foliage, a warm interior, the hue chart (hue_chart_*.png full screen, as photo-v12).
+3. Put the RAW+JPG pairs in ~/dev/gr3-firmware/photo-lsab/; I can score each JPG against the film target from its DNG.

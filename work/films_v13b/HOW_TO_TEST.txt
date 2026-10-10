@@ -1,0 +1,10 @@
+Films v13b = v13 + its own icon per film (FINDINGS §24b). Everything else identical to v13 (same films, tones,
+adjustments shared with Positive Film, RAW NR off up to ISO 8000).
+
+Flash work/films_v13b/fwdc239b.bin (SHA-256 4ba97972...4097db3f). Film settings stored by v13 stay valid.
+Only for a GR III WITHOUT HDF: the film icons reuse the HDF on/off icons and three GR IIIx-only icons.
+
+1. Image Control list: each film shows its own film-strip icon (P400, E100, G200, 400H, 250D, NC, see icons.png).
+2. Shooting screen with a film selected: the same icon top left.
+3. Menu > certification marks (if you look): the GR III page should still be fine.
+4. Optional, still open from v13: playback RAW development with a film; Custom 1 saved with a film.

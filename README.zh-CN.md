@@ -5,7 +5,25 @@
 为理光 GR III 固件 2.10 制作的自定义胶片风格（Kodak Ektar 100、Gold 200、Portra 400、Fujifilm Pro 400H、
 Kodak Vision3 250D）以及 RAW 降噪修改，全部通过离线修补官方升级文件实现。研究笔记见 `FINDINGS.md`（英文）。
 
-## 改动内容（胶片 v10 / v11 版本）
+## 当前版本：胶片 v16（`work/films_v16/build.sh`，FINDINGS §23-§34d）
+
+* **胶片作为新的影像控制条目**（不占用任何原厂模式）：Portra 400、Ektar 100、Gold 200、Pro 400H、Vision3 250D 和
+  Classic Neg 追加在原厂列表之后，带各自的名称和图标。Vision3 500T 以及 GR IV 的 Cinema (Yellow) / Cinema (Green)
+  替换交叉冲洗 / 漂白 / 复古（拍照和视频列表）。
+* **色相分区（MultiAxial）**：GR III 出厂关闭的 12 分区色相校正被打开（用 GR IV 的控制值，FINDINGS §29-§30b），
+  每个胶片在观感矩阵、三条色调曲线和曲线后矩阵之外，还有自己的 12 个分区矩阵。
+* **机内 RAW 显影支持胶片**：显影的影像控制列表包含胶片；用胶片拍的 RAW 打开时“拍摄时设置”就是该胶片
+  （机内 ImageTone 写入胶片专用代码 268-276，exiftool 显示为未知值）；参数页使用对应布局（FINDINGS §34-§34d）。
+* 原厂模式不变（每个版本都在仿真中检查）。
+* **未包含**：Cinema (Yellow)/(Green) 数据和 GR IV 色相分区表来自理光 GR IV 固件，不放进本仓库；
+  请用 `work/films_v14/gr4/` 从你自己的 `fwdc248b.bin` 中提取。
+
+相机实测（色卡，日光白平衡，FINDINGS §33b）：相机 JPG 与 v16 模型的平均 ΔE2000 为 0.69（8 个胶片；不带色相分区的
+v15 模型为 0.79；标准模式对自身模型为 0.68，即测量下限）。模型对胶片目标的平均 ΔE2000（综合 / 色卡）：Portra
+1.93 / 1.38，Ektar 2.11 / 1.64，Gold 1.97 / 1.42，Pro 400H 1.88 / 1.48，Vision3 250D 1.96 / 1.63，Classic Neg
+1.20 / 1.09，Vision3 500T 1.98 / 1.42（标准模式对目标：4.5-6.8）。
+
+## 早期版本：胶片 v10 / v11
 
 | 原图像控制模式 | 改为 | 胶片目标（spektrafilm） |
 | --- | --- | --- |

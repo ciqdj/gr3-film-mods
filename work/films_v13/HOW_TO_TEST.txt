@@ -1,0 +1,20 @@
+Films v13 = stock firmware + 6 NEW Image Control entries (FINDINGS §24). Vivid, Retro, HDR Tone, Cross Process and
+Bleach Bypass are stock again. RAW NR off up to ISO 8000 as in v12.
+
+Flash work/films_v13/fwdc239b.bin (SHA-256 6d4d6812...079a4bce). Keep the stock fwdc239b.bin to reflash.
+BEFORE flashing any other firmware later (stock, v12, ...): select a stock Image Control in the normal still
+setting AND in Custom 1 / Custom 2 if you saved a film there. Older firmware does not know tones 25-30.
+
+1. Image Control list: 18 entries; after Cross Processing come Portra 400, Ektar 100, Gold 200, Pro 400H,
+   Vision3 250D, Classic Neg. All six use the Positive Film icon for now (expected). Does the list scroll to the end?
+2. Select Portra 400. Shooting screen: name / icon shown? Power off, power on: still Portra 400?
+3. Adjustments: open the parameter page on a film. Which sliders appear? Change Saturation to +4 and look at live
+   view (should get stronger). The films share their settings with Positive Film: Positive Film should now show +4
+   too. Put it back to 0.
+4. Stock modes: Vivid / Retro / HDR Tone / Cross Processing / Bleach Bypass look like stock again.
+5. Chart test (same setup as photo-v12): hue_chart_*.png full screen, M mode, ISO 200, f/5.6, ~1/30, WB Daylight,
+   DR / shadow correction OFF, clarity/shading 0, RAW+JPG, all adjustments 0. One shot each: Standard, Portra 400,
+   Ektar 100, Gold 200, Pro 400H, Vision3 250D, Classic Neg, Standard again. Plus a few real scenes.
+6. Optional: playback RAW development of a DNG with a film selected; Custom 1 saved with a film selected.
+Put the RAW+JPG pairs and notes (anything odd: freezes, empty names, settings that don't stick) in
+~/dev/gr3-firmware/photo-v13/.

@@ -11,7 +11,8 @@ K is an ASSUMPTION: Standard puts 18% gray at ~sRGB 0.46, i.e. base-gamma index 
 Confirm/refine with a RAW+JPG pair before trusting absolute exposure.
 
 Usage: cube_fit.py [--curves-from fit.json] [--boost W [--neutral N]] out.json in_cs cube[:ev] [cube[:ev] ...]
-  in_cs: cube input encoding, currently 'vlog' (V-Gamut/V-Log, as spektrafilm bakes it)
+  in_cs: cube input encoding: 'vlog' (V-Gamut/V-Log, as spektrafilm bakes it) or 'srgb' (sRGB-encoded linear image,
+         as the abpy/FujifilmCameraProfiles cubes)
   ev:    exposure offset applied to scene-linear before the cube (e.g. +1 = overexposed film)
 All cubes share one matrix M; each gets its own 3 curves.
 --curves-from: keep the first preset's curves of another fit and solve only M (for a mode that has
@@ -81,15 +82,23 @@ def samples(seed=1, boost=0.0):
 
 def load_target(path, in_cs, ev):
     lut = colour.read_LUT(path)
-    if in_cs != 'vlog':
-        raise SystemExit('only vlog input cubes supported for now')
+    if in_cs not in ('vlog', 'srgb'):
+        raise SystemExit('input encoding must be vlog or srgb')
     vg = colour.RGB_COLOURSPACES['V-Gamut']
 
     def T(L):
-        x = colour.RGB_to_RGB(L * 2.0 ** ev, SRGB, vg)
-        x = colour.models.log_encoding_VLog(np.clip(x, 0, None))
+        if in_cs == 'vlog':
+            x = colour.RGB_to_RGB(L * 2.0 ** ev, SRGB, vg)
+            x = colour.models.log_encoding_VLog(np.clip(x, 0, None))
+        else:      # sRGB primaries + sRGB OETF of the linear image, clipped at 1 (abpy FujifilmCameraProfiles cubes)
+            x = SRGB.cctf_encoding(np.clip(L * 2.0 ** ev, 0, 1))
         return np.clip(lut.apply(x, interpolator=colour.algebra.table_interpolation_tetrahedral), 0, 1)
     return T
+
+
+def target_of(preset):
+    """Target of a fit preset (older fits have no in_cs/ev: vlog, 0)."""
+    return load_target(preset['spec'], preset.get('in_cs', 'vlog'), preset.get('ev', 0.0))
 
 
 def fit_curve(g, t, w, lam=3000.0):
@@ -187,7 +196,8 @@ if __name__ == '__main__':
         print(f'{os.path.basename(spec)}: chart dE2000 fit mean {d_fit.mean():.2f} max {d_fit.max():.2f} | '
               f'Standard-vs-target mean {d_std.mean():.2f}')
         gray = tgt[[18, 19, 20, 21, 22, 23]]
-        report.append(dict(spec=spec, curves=[list(map(int, c)) for c in cv],
+        path, _, ev = spec.partition(':')
+        report.append(dict(spec=path, in_cs=in_cs, ev=float(ev or 0), curves=[list(map(int, c)) for c in cv],
                            chart_de_mean=float(d_fit.mean()), chart_de_max=float(d_fit.max()),
                            std_de_mean=float(d_std.mean()), target_gray_row=np.round(gray * 255).tolist(),
                            fit_chart=np.round(model(M, cv, chart) * 255).tolist(), target_chart=np.round(tgt * 255).tolist(),

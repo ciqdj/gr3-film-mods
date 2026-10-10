@@ -2,10 +2,31 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-Custom film looks (Kodak Ektar 100, Gold 200, Portra 400, Fujifilm Pro 400H, Kodak Vision3 250D) and RAW-NR changes
-for the Ricoh GR III firmware 2.10, built by patching the official update file offline. Research notes: `FINDINGS.md`.
+Custom film looks (Kodak Portra 400, Ektar 100, Gold 200, Fujifilm Pro 400H, Kodak Vision3 250D / 500T, Fujifilm
+Classic Neg) and RAW-NR changes for the Ricoh GR III firmware 2.10, built by patching the official update file offline.
+Research notes: `FINDINGS.md`.
 
-## What it changes (films v10 / v11 builds)
+## Current build: films v16 (`work/films_v16/build.sh`, FINDINGS §23-§34d)
+
+* **Films as new Image Control entries** (no stock mode is lost): Portra 400, Ektar 100, Gold 200, Pro 400H,
+  Vision3 250D and Classic Neg are appended after the stock list, with their own names and icons. Vision3 500T and the
+  GR IV's Cinema (Yellow) / Cinema (Green) replace Cross Process / Bleach Bypass / Retro (still and movie lists).
+* **Hue sectors (MultiAxial).** The GR III's 12-sector hue colour correction is switched on for the films (it ships
+  disabled; the GR IV's control values enable it, FINDINGS §29-§30b). Each film gets its own 12 sector matrices on top
+  of its look matrix, three tone curves and post-curve matrix.
+* **Playback RAW development works with films:** the RAW-development Image Control list includes them, a RAW shot in a
+  film opens with that film as "as shot" (film-specific maker-note ImageTone codes 268-276, shown as unknown values by
+  exiftool), and the slider pages use the matching layout (FINDINGS §34-§34d).
+* Stock modes are unchanged (checked in emulation for every build).
+* **Not included:** the Cinema (Yellow)/(Green) data and the GR IV hue-sector tables are extracted from Ricoh's GR IV
+  firmware and stay out of this repository; extract them from your own `fwdc248b.bin` with `work/films_v14/gr4/`.
+
+Camera result (hue chart, Daylight WB, FINDINGS §33b): the camera JPG matches the v16 model to a mean ΔE2000 of 0.69 over
+eight films (v15 model without hue sectors: 0.79; Standard vs its own model: 0.68, the measurement floor). Model vs film
+target, mean ΔE2000 general / ColorChecker: Portra 1.93 / 1.38, Ektar 2.11 / 1.64, Gold 1.97 / 1.42, Pro 400H 1.88 /
+1.48, Vision3 250D 1.96 / 1.63, Classic Neg 1.20 / 1.09, Vision3 500T 1.98 / 1.42 (Standard vs target: 4.5-6.8).
+
+## Earlier builds: films v10 / v11
 
 | Image Control slot | Becomes | Film target (spektrafilm) |
 | --- | --- | --- |
@@ -60,14 +81,15 @@ Classic Neg, which is fitted to the `classic neg_sRGB.cube` LUT of
 
 License (by part):
 * Code and notes: MIT (`LICENSE`).
-* Fit data derived from spektrafilm LUTs: everything in `work/**/fits/` except `classicneg_*`, plus `work/films/*.json`,
+* Fit data derived from spektrafilm LUTs: everything in `work/**/fits/` except `classicneg*`, plus `work/films/*.json`,
+  `work/lsab/portra_ls.json`, the non-Classic-Neg entries of `work/v16_plan/hue_sectors.json`,
   `work/portra400/portra_fit.json` and `work/films_v8/cca1_mats.json`, `work/films_v9/cca1_mats.json`. Derived from
   [spektrafilm](https://github.com/andreavolpato/spektrafilm) by Andrea Volpato, licensed CC BY-SA 4.0 (spektrafilm
   license with the full CC BY-SA 4.0 text: `LICENSES/SPEKTRAFILM_LICENSE.txt`). Modified by idontknownihil: the LUTs
   were fitted to GR III camera parameters (see `LICENSES/CHANGELOG.txt`); the LUTs themselves are not included.
   Adaptations must stay CC BY-SA 4.0 and keep this credit.
-* Fit data derived from FujifilmCameraProfiles LUTs (`work/**/fits/classicneg_*`, i.e. every fit whose `spec` points to
-  that repo): [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) (text in
+* Fit data derived from FujifilmCameraProfiles LUTs (`work/**/fits/classicneg*`, `work/lsab/classicneg_ls.json`, the
+  Classic Neg entry of `work/v16_plan/hue_sectors.json`, i.e. every fit whose `spec` points to that repo): [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) (text in
   `LICENSES/CC-BY-NC-SA-4.0.txt`). Attribution: adapted from `classic neg_sRGB.cube` by abpy,
   [abpy/FujifilmCameraProfiles](https://github.com/abpy/FujifilmCameraProfiles), CC BY-NC-SA 4.0. Changes: the LUT was
   fitted to the GR III look matrix, tone curves and post-curve matrix; the LUT itself is not included. Provided as is,
@@ -115,5 +137,15 @@ open('work/fw/rtos.bin','wb').write(dec[0x10870:0x10c5e30])"
 | `make_cca1_probe.py` | Temporary v7 + red/blue swap in CCA1 (proved CCA1 is live) |
 | `eval_warm.py` | Warm-hue (yellow/orange) vs overall error of film fits (films v3, FINDINGS §19) |
 | `gr3patch.py` | Proof-of-concept builder: patches a look matrix and repacks a container (reuses stock frames) |
+| `make_slots.py`, `verify_slots.py` | Films v13: films as new Image Control entries (tones 25+), stock modes restored (FINDINGS §23-§24) |
+| `make_slots14.py`, `verify_slots14.py` | Films v14: films may replace a stock entry (Cinema Y/G from the GR IV, Vision3 500T) (FINDINGS §25) |
+| `make_slots15.py`, `verify_slots15.py` | Films v15: replacements also in the movie list (FINDINGS §26) |
+| `make_slots16.py`, `verify_slots16.py` | Films v16: hue sectors per film, RAW-development fixes, maker-note image tone (FINDINGS §33-§34d) |
+| `make_ma_probe5.py`, `verify_ma_probe5.py` | MultiAxial probe 5: proved the hue sectors work on the GR III (FINDINGS §29-§30b) |
+| `work/films_v16/refit16.py`, `check_v16.py` | v16 joint refit with hue sectors; camera hue-chart check (FINDINGS §33, §33b) |
+| `work/compare/lutsmith16.py`, `work/sensor_diff/sens.py`, `work/wb_sim/wb_sim.py` | GR4-LUTSmith comparison, sensor differences, white-balance simulation (FINDINGS §27, §28a, §32) |
 
-Camera-tested on one GR III (fw 2.10): films v2-v10 and the RAW-NR builds (FINDINGS §14-§22m). Films v11 is untested.
+Camera-tested on one GR III (fw 2.10): films v2-v10 and the RAW-NR builds (FINDINGS §14-§22m), v13 (§24a), the v16 hue
+chart (§33b) and the RAW-development fixes up to §34c. The §34d RAW-development list fix is not yet camera-tested.
+`work/sensor_diff/camspec_database.txt` (RIT camera spectral sensitivity database, Jiang et al. 2013) is not included;
+download it from its authors.

@@ -1,0 +1,20 @@
+MultiAxial probe round 5 - how to shoot (temporary firmware; flash films v15 back afterwards)
+fwdc239b.bin SHA-256 0da550844c5dd7c222e282a4c1865a915a7f461caf6ed501dd82f1d0fd66ff33 (built on STOCK 2.10, no films)
+
+Before flashing: note your C1/C2 settings. Afterwards the film entries are gone until you reflash v15.
+
+1. Monitor: show hue_chart_<your monitor resolution>.png full screen (3840x2160 for the G81SF), cursor off the chart,
+   Night Shift / True Tone / HDR / dynamic brightness off. Let it sit ~1 min.
+2. Dim room, constant light, no lamp or window light on the screen.
+3. Tripod, straight at the screen, chart filling most of the frame, all 4 white corner squares visible.
+4. M mode, ISO 200, f/5.6, shutter so the white squares are bright but not blinking (~1/30). WB Daylight.
+   DR / highlight / shadow correction OFF, clarity/shading 0, RAW+JPG, focus slightly OFF, 2 s timer.
+5. Without moving anything, one shot in each Image Control:
+   Standard, Vivid, Positive Film, Negative Film, Retro, HDR Tone, Cross Processing, Standard again  (8 shots)
+6. Put the 8 RAW+JPG pairs in ~/dev/gr3-firmware/photo-ma5/
+7. What to look for: if MultiAxial finally works, Positive Film shows coloured patches darkened in a pattern that
+   changes with hue (bands of 30-85 % brightness), greys mostly unchanged. The other modes each switch one setting
+   back to the GR III value; which of them still show the pattern tells which setting was the enable.
+   If every mode looks like Standard again, the GR IV values are not the missing piece.
+8. Quick check before the series: Positive Film live view on the chart - a visibly darker/patchy chart = it works.
+   If a mode gives garbled colours, a frozen live view or an error: back to Standard (or pull the battery), note it, continue.

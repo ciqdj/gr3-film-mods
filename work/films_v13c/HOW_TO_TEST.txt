@@ -1,0 +1,14 @@
+Films v13c = v13b with the films sharing STANDARD's adjustments instead of Positive Film's (FINDINGS §24c).
+Same films, tones, icons, RAW NR off up to ISO 8000.
+
+Flash work/films_v13c/fwdc239b.bin (SHA-256 c96cdee7...0d332ab9).
+Only for a GR III WITHOUT HDF (icons as v13b).
+
+Note: the film sliders now show Standard's stored values. Whatever you set on films under v13/v13b stays with
+Positive Film; the films start from whatever Standard has.
+
+1. Set Standard to e.g. Saturation +2, select Portra 400: its adjustment page shows Saturation +2.
+2. Change Contrast on Portra 400, go to Standard: same Contrast there; Positive Film is NOT changed.
+3. Positive Film keeps its own values (set something different, check films/Standard don't follow).
+4. Image Control set No1/No2 (if you use them): same behaviour per set.
+5. Optional, still open: playback RAW development with a film; Custom 1 saved with a film.

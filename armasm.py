@@ -1,13 +1,13 @@
 """Assemble a small ARM (A32) stub at a fixed address with llvm-mc (Homebrew llvm).
 
 One instruction per line, optional 'label:' prefix, '@' comments. Branches to absolute firmware addresses are
-written 'bl abs(0xADDR)' / 'b abs(0xADDR)' (also beq/bne/blo/bhs) and encoded here; local labels are resolved by llvm-mc.
+written 'bl abs(0xADDR)' / 'b abs(0xADDR)' (also beq/bne/blo/bhs/bls/bhi) and encoded here; local labels are resolved by llvm-mc.
 `.word` lines are allowed. Returns a list of 32-bit words (little-endian in the image).
 """
 import os, re, subprocess, tempfile
 
 LLVM = os.environ.get('LLVM_BIN', '/opt/homebrew/opt/llvm/bin/')
-COND = {'b': 0xE, 'beq': 0x0, 'bne': 0x1, 'blo': 0x3, 'bhs': 0x2}
+COND = {'b': 0xE, 'beq': 0x0, 'bne': 0x1, 'blo': 0x3, 'bhs': 0x2, 'bls': 0x9, 'bhi': 0x8}
 
 
 def assemble(src, base):
@@ -16,7 +16,7 @@ def assemble(src, base):
     fixed = []
     for i, l in enumerate(lines):
         at = base + 4 * i
-        m = re.match(r'^\s*(\w+:\s*)?(bl|b|beq|bne|blo|bhs)\s+abs\((0x[0-9a-fA-F]+)\)\s*$', l)
+        m = re.match(r'^\s*(\w+:\s*)?(bl|b|beq|bne|blo|bhs|bls|bhi)\s+abs\((0x[0-9a-fA-F]+)\)\s*$', l)
         if m:
             off = ((int(m.group(3), 16) - at - 8) >> 2) & 0xFFFFFF
             word = 0xEB000000 | off if m.group(2) == 'bl' else (COND[m.group(2)] << 28) | 0x0A000000 | off

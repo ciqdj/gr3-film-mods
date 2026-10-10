@@ -636,3 +636,510 @@ Vision3 250D 2.34/2.00/1.94/2.60 -> 2.13/1.66/1.74/2.42. Greys unchanged (dE76 <
 Films v11 = make_films10.py with the work/films_v11/fits/*_lab.json fits: SHA-256
 90691ea19c205c0740221537c3d4972d826433a5230baf09b88157238c1b48ae, verify_films10 ALL OK, fw check expect_v11.bin
 (FW_V11.BIN via work/films_v11/script). Not yet camera-tested.
+
+### 22n. Films v12: Bleach slot -> Fujifilm Classic Neg (built 2026-10-09, not yet camera-tested)
+Target: `classic neg_sRGB.cube` from github.com/abpy/FujifilmCameraProfiles (CC BY-NC-SA 4.0; 32^3, input = sRGB-encoded
+linear-contrast image, sRGB primaries, clipped at 1). `cube_fit.load_target` gained in_cs 'srgb'; fits now store
+spec/in_cs/ev and joint_fit/lab_fit read them via `target_of`. Exposure: -0.88 EV, the offset at which the same set's
+Provia cube puts 18% grey where GR Standard does (0.461; Provia then tracks Standard's grey scale within 0.02 from -4 to
++1 EV). Classic Neg at that offset: grey 0.477, darker shadows (-4 EV 0.034 vs 0.041).
+Fit (boost 4, neutral 3): cube_fit chart 2.63 (Standard vs target 9.16) -> joint 1.47 -> lab_fit general / warm /
+ColorChecker / camera chart 1.51 / 1.16 / 1.14 / 1.33, identical after the 33-knot expansion (max 26/16384).
+Post matrix [[487,-3,28],[54,431,27],[-47,130,429]]/512, CSP H.P (hue 4) [[86,133,36],[-62,-39,100],[112,-96,-16]].
+Build: `make_films10.py --raw-nr-above 8000 --labels v12` with the four v11 fits + `work/films_v12/fits/classicneg_b4n3_lab.json`
+(name "Classic Neg", icon "NC"); the same command without --labels and with the v11 Vision3 fit reproduces v11 byte for
+byte. `work/films_v12/fwdc239b.bin` SHA-256 7d601db0c9a235aadaf72a363b6be57ba7155cc944296896cf4500224fb846a1,
+verify_films10 ALL OK, fw check expect_v12.bin (FW_V12.BIN via work/films_v12/script).
+
+### 22o. Sixth film in the Soft Monotone slot (tone 14): what to patch, and where the space is (static + emulated)
+Mono handling for tone 14 (all in the still and live-view ctx fill, no other tone-14 checks in ImageTuning):
+* 0x536dc4d8 `cmpne r2,#1` sets ctx+0x79 (mono) for tones 13/14/16; with it the ColorMatrix calc 0x536DEECC ignores the
+  record matrix and builds identical rows from the filter-effect weights ctx+0x7c..0x80. `#1` -> `#0` drops tone 14 only.
+* Record 14 (0x55019204, own matrix 0x53DC27F0, single reference) carries the mono flag info+0x1669 and the toning
+  tables. Emulated: flag patch + Standard record on slot 14 -> R2Y byte-identical to Standard (still and LV); toning
+  (SI+0x785) and filter effect (SI+0x78A) then change nothing; saturation/hue fixed at 4 by the tone-14 param case
+  (0x536DB9D8); contrast/key still read.
+* 0x535131D8 `cmp r3,#0xe`: tone 14 always sets flag +0x24 in the struct filled by 0x53513504 (other tones only when
+  SI+0x793/0x794 != 4 or SI+0x795 != 0) - presumably the extra pass of the soft effect. Not yet traced.
+Space: v12 leaves 36 B (area A) + 32 B (area B) + 16 B (sets); a sixth film needs ~250 B. Newly free, all unreferenced
+(no b/bl, literal or movw/movt references from outside):
+* C = 0x536EF088..0x536EF140 (184 B): Box-Muller gaussian helper + its literal pool; its only callers (7 bl) were in
+  the Cross "random" case that film_cave already overwrote.
+* D = 0x536EF99C..0x536EF9B8 (28 B): nop after `bl __stack_chk_fail` + the random case's literal pool (doubles
+  0, 1000, 2^31/100); 0x536EF998 (bl) and 0x536EF9B8 (a live function, 4 callers) stay.
+Layout that fits (sizes from llvm-mc): A <- CSP stub, shortened 204 -> 192 B (ldm, row/column base registers);
+B <- CSP table 7 x 24 + expander 88 + Bleach and 500T knots 2 x 198 (range check 396) = 652/668;
+C <- fill (+ tone 14: selector 4, pointer set via movw/movt) 116 + getter 60 = 176/184; D <- 500T pointer set 24/28.
+More space (2026-10-09, scratchpad deadscan): whole-RTOS scan for function regions with no b/bl/blx, literal, adr,
+pc-relative load or movw/movt reference from outside themselves. On the v12 image it flags exactly one new region,
+C above; the look data orphaned by the film records are 8-20 B fragments. In stock, 0x530xxxxx looked dead (135 KB)
+until the 584 SHELLCMD handlers were counted as references (engineering shell, reachable from scripts); what remains
+is ~52 KB: ~47 KB in one -O0 driver-style library at 0x5307..0x530F (no strings), ~3 KB in app/library code (largest
+0x53819B34 776 B, 0x53613114 200 B). Static evidence only (a computed address or a caller outside the RTOS image
+would be invisible), so not used. Cheaper: knots as u16 first value + u8 deltas x8 (fits so far: max delta 993,
+error <= 4/16384) = 102 B per film instead of 198.
+
+## 23. More Image Control entries (new tones) instead of replacing modes (static analysis, 2026-10-09, nothing built)
+Goal (user decision): 6-8 new entries; stock Vivid / Retro / HDR Tone / Cross Process / Bleach Bypass come back
+unchanged; the films move to the new entries.
+
+**Menu list (Model/ImageControlModel.cpp).** GetImageControlValueCount 0x532C2A9C: 12 still / 10 movie
+(`movls r0,#0xc` at 0x532C2ACC). [obj+0x1B] mode: 0 still, 1 movie, 2 RAW development (masked with 0xFD, so RAW
+development shares the still tables). Index -> tone GetImageControlFromUserDataValues 0x532C2C80, one table per
+Image Control set (GetActiveImageControlSet 0x532BD6D4, sets No0/No1/No2): 0x53B59224 / 0x53B58FCC / 0x53B5919C,
+each `[11,12,13,14,15,16,22,17,18,19,20,21]` and packed against other data (relocate them, one movw/movt pair each
+in 0x532C2C80 and 0x532C2F08). Tone -> index 0x532C2F08 is a linear search, `cmp r0,#0xc` (not found -> 12).
+
+**Tones 23/24 are taken.** GetStillDispImageControl 0x5326C1D0 (tone -> display code): set No1/No2 -> 0x17/0x18
+(shown as Custom 1/2), otherwise a jump table over tones 0..22 (`cmp r3,#0x16` at 0x5326C238; 0-10 -> legacy codes,
+11-22 -> same value). So new tones start at **25**. Display code -> string 0x532A9860, -> icon 0x532A998C (jump
+tables `cmp r1,#0x18`, codes 0-10 give 0). Tone -> string 0x532922B4 and tone -> icon 0x532935DC (cmp chains up to
+0x16; also reached via GetImageControlString 0x532A9BB0 / GetImageControlIcon 0x532A9B34, which return 0x117/0x118
+and 0x15B/0x15C for sets No1/No2).
+
+**Names and icons.** The two string getters (0x53396670, 0x533970A4) index 0x55002BAC[lang][id] with `id <= 0x311`;
+new names can be served from cave entries behind these two bounds checks. Icon catalog 0x550020FC, getters
+0x53209FB8 / 0x53209FEC / 0x5320A7AC with `id <= 0x29E`; icon pixels live in ICONBIN (not growable in the current
+builder). I found no provably unused 40x40 icon (all 388 ids also occur as small immediates, so the scan is
+inconclusive) -> icon source still open.
+
+**Where the choice is stored.** User settings struct, 0xB26 bytes (memcpy 0x5327B35C; the factory-default builder
+0x5323F42C fills it on the stack, u16 fields). Tone byte (raw tone) +0x1C2 / +0x1C4 / +0x1C6 for still sets
+No0/No1/No2 (store functions 0x5327B394 / 0x5327B3B4 / 0x5327B3D4), +0x1C0 = active set, +0x44 checked as well
+(still/movie). Every adjustment has one field per mode per set (about 380 store functions, e.g. Standard
+saturation No0 +0x1C8, Negative +0xA42), each followed by an "is this the active mode" check before pushing the
+value to the camera (0x5354C230 = property 0xAF saturation, ...). "Apply all" 0x532750FC (20 KB, bl'd as 0x532750F8)
+calls every check, so values are pushed only for the active tone/set. Check layouts: set No0 = 12 words
+`ldr r3,[r0,#4]; ldrb r2,[r3,#0x44]; cmp r2,#0; bne R; ldr r3,[r3,#0x1c0]; bic ..ff000000; bic ..ff00;
+cmp r3,#tone<<16; beq T; R: mov r0,#0; bx lr; T: b tail`; No1/No2 = 13 words (`ldrb [0x1c0] == 1/2`, then
+`ldrb r3,[r3,#0x1c4/0x1c6]; cmp r3,#tone`). 106 No0 checks matched the exact pattern.
+
+**Per-tone code in the UI model.** The setters read the tone via 0x53549EE8 -> SI+0x77C (only those 20 callers).
+109 tone jump tables `sub rX,rX,#0xb; cmp rX,#0xb; ldrls pc` over tones 11-22 in 25 functions: Set* and
+GetDefaultValue* for Saturation, ColorHue, ImageKey, Contrast, ContrastHighLight, ContrastShadow, Sharpness,
+Shading, ClarityControl (6 tables each = 2 modes x 3 sets; Clarity 3), plus single tables in 0x53356D38, 0x53356E54,
+0x53356F70, 0x5336BF28, 0x5336C024, 0x5336C120, 0x53816CE8 (not identified yet). Registers r4/r5/r0 only, rd == rn.
+A new tone falls to the default case (setter: nothing stored; getter: assert + fallback). The assert 0x536B93D0
+prints a banner and backtrace and returns (not fatal). There is a second enum (UserData::ImageControl 0..11,
+order Std, Vivid, Mono, Soft, Hard, HiCon, Negative, Positive, Bleach, Retro, HDR, Cross; 12 = take from SI),
+used by GetUserDataImageControlParameterValue 0x53286568, ConvertToCommonPropertyImageControl 0x5328905C and the
+RAW-development model (0x53288D60) - still to be checked for new tones.
+
+**Menu -> camera.** The UI sends the raw tone byte: CommonProperty SetImageTone 0x53558310 -> 0x53558260 writes
+SI+0x77C; its permission check 0x53553AD4 returns 1 for any value >= 0x16, so no cap. The remote/PTP property 0x4F
+handler 0x535BF7A8 maps 0x101..0x10B -> tones 12..22 and anything else to Standard (only matters for remote
+control).
+
+**Image pipeline.** ctx fill 0x536DC26C: record slot = tone (22 -> 25; 18/20 special) into the 26-entry record
+table 0x55018D94 (also 0x55018CF0, 0x55018E4C). Tones 23-25 would get Bleach-variant / HDR-mono / Negative records,
+26+ read past the table -> patch 0x536DC280 to map new tones to the unused legacy slots 0-10 (11 complete
+records). The other tone tests in Make are equality tests, so a new tone takes the generic (Standard-like) path,
+which is what the films build on. The stock still path only ever sets curve selector 2/3/4 (0x536DD4B8 chain from
+SI+0x797), never 1, so the Cross "random" case stays dead with stock Cross Process restored, and library curves
+0-2 (3 x 512 B ROM) are only reachable from that case or saved sets.
+
+**Space.** The L1 table at 0x53004000 maps 0x53000000-0x54FFFFFF read-only and executable (AP=2, APX=1);
+BSS is 0x5503A100..0x55804374 (boot 0x53000368..). Nothing references 0x540B55C0 (end of the RTOS image) ..0x54FFFFFF,
+so code appended to RTOS would sit in memory nobody writes, but whether BOOT loads more than the stock section
+length is not verified (only the section header carries the length; PARTPARA not decoded) -> don't grow RTOS
+before that is proven. Film curves as knots (§22l/§22o).
+
+**Plan (proxy design).** New tones 25.., each mapped to a legacy record; one "proxy" mode (e.g. Positive Film, 17)
+for the adjustments: each `sub rX,rX,#0xb` above becomes `bl stub_rX` (stub: tone >= 25 -> proxy; then -11; the
+sites are in non-leaf functions, lr liveness still to be checked per site), and the proxy's No0/No1/No2 checks are
+rewritten in place to also accept tones >= 25 (fits exactly: 12 / 13 words using ip as scratch). Films then share
+the proxy mode's adjustment values. Plus: list tables + counts, display/name/icon cases, slot map, film fill/CSP.
+Open, camera test needed: list screen with > 12 rows, power-off persistence of a tone >= 25, the adjustment page for
+a new tone, EXIF maker-note image tone.
+
+## 24. Films v13: six films as NEW Image Control entries, stock modes restored (built 2026-10-09, not yet camera-tested)
+`make_slots.py` (from the **stock** file), check `verify_slots.py`, reproduce with `work/films_v13/build.sh`.
+`work/films_v13/fwdc239b.bin` SHA-256 6d4d6812f1873b951589db32a617b1e49f9e483a4262b5b5f6762716079a4bce, only RTOS
+changed, verify ALL OK (51 checks). RAW NR above ISO 8000 as v12.
+
+| Menu position | Tone | Film (fit) | Legacy record slot / matrix | Knots (curves 0-2 ROM) |
+|---|---|---|---|---|
+| 13 | 25 | Portra 400 (v12 portra lab) | 1 / 0x53DC2B20 | 0x53EFB2E4 |
+| 14 | 26 | Ektar 100 | 2 / 0x53DC2A54 | 0x53EFB3AC |
+| 15 | 27 | Gold 200 | 3 / 0x53DC29F0 | 0x53EFC128 |
+| 16 | 28 | Pro 400H | 4 / 0x53DC2684 | 0x53EFC1F0 |
+| 17 | 29 | Vision3 250D (v11 lab) | 5 / 0x53DC2B8C | 0x53EFC728 |
+| 18 | 30 | Classic Neg | 7 / 0x53DC241C | 0x53EFC7F0 |
+
+All curves are 33-knot tables now (max 31/16384 off the fit; v12 kept full curves for four films). Stock modes,
+Cross presets and Bleach/HDR variants are byte-identical to stock in the emulated R2Y block (still and LV), also
+when rendered right after a film (the fill restores library pointers 6-11 every call; Cross 21 goes through the
+stock preset chain 0x536DD4B8).
+
+**One more pipeline finding.** The per-tone parameter pass-through 0x536DB7DC (cmp chain over tones 11-22) forces
+every adjustment to neutral (4) for any other tone, so a film on a new tone ignored saturation/hue/contrast/... even
+in the pipeline (the CSP hue rotation was missing in the first build). Patch: `cmp r2,#0xb` at 0x536DB7FC -> stub
+mapping tones >= 25 to PROXY (17, same case as Vivid). Emulated: film = stock Positive Film with the film's matrix
+for saturation 1/7, key 0/8, contrast 1/8, HL 0, shadow 8, sharpness 8 (differences only in gamma, CSP and the
+composite flag info+0x82AF). Table 0x53DBD1B0 (per-tone offset into ctx+0x4E, read at 0x536DD3F4) gives 0 for
+tones > 22, i.e. Standard's value (Positive has 1); left as is since the fits are made against Standard.
+
+**Patches.** Pipeline: 0x536DC280 slot map (bl + 2 nop), 0x536DB7FC param tone, 0x536DD450/54 fill, 0x536E4774 CSP
+stub, 0x536E87C4 curve getter (knot expander with 3 ranges), 0x536EF618 random case -> preset case. Menu: count
+0x532C2ACC (18), index->tone table 0x53EFC300 (3 movw/movt pairs in 0x532C2C80, 3 in 0x532C2F08, 3 `cmp #0xc`),
+name 0x532922B4 / icon 0x532935DC entry branches, display code 0x5326C240, display string 0x532A9874, display icon
+0x532A99A0, string getters 0x533966D4/FC and 0x533970EC/0x53397108 (ids up to 0x3FF; 0x380.. -> entries at
+0x53EFC2D0, same text in all languages). Adjustments: 102 tone switches in the 18 Set*/GetDefaultValue* functions ->
+bl to r4/r5 stubs (the 7 other single switches are debug printers, left alone); 27 PROXY checks rewritten in place
+(12/13 words, ip as scratch). lr is never read in the patched functions before being written (checked), so the
+bl's are safe. Free space left: 8 + 4 + 44 + 28 B code, 28 B in the curve areas (a 7th/8th film needs the compact knots of §22o or more dead code).
+
+**Not verified (camera):** list with 18 rows, power-off persistence of tones 25-30, which sliders the parameter page
+shows for a film, shooting-screen name/icon, EXIF image tone, playback RAW development and Custom 1/2 with a film,
+any other per-tone code outside the patched functions. Icons: all films show the Positive Film icon (no free icon
+storage found). Going back to older firmware with a film selected leaves tone 25+ in the user settings - select a
+stock mode first. Test plan: `work/films_v13/HOW_TO_TEST.txt`.
+
+### 24a. Films v13 on camera, first look (user report, 2026-10-09)
+Test plan items 1-4 (`work/films_v13/HOW_TO_TEST.txt`) reported OK: 18-entry list with the six films after Cross
+Processing, Portra 400 selectable with name/icon on the shooting screen, film adjustments shared with Positive Film,
+Vivid / Retro / HDR Tone / Cross Processing / Bleach Bypass stock again. Power off / on: the film selection is kept
+(user confirmed), so tone 25+ survives in the user settings. Not yet done: chart test (item 5), playback RAW
+development and Custom 1/2 with a film (item 6).
+Shots (photo-v13, R0011936-38, indoor desk, Multi Auto WB, DR expansion Auto, ISO 400-640): EXIF Pentax ImageTone
+is 256 (Standard) for every film - the maker-note writer maps unknown tones to Standard. `work/films_v13/check_v13.py`
+(run in a venv with rawpy/opencv/colour/scipy) compares each JPG with the Standard model and all six film models
+developed from its own DNG (mean dE2000, exposure + shading gain fitted per model):
+| shot | Standard | Portra | Ektar | Gold | 400H | 250D | Classic Neg |
+|---|---|---|---|---|---|---|---|
+| R0011936 | 5.14 | 5.45 | 5.63 | 5.02 | 4.40 | 4.07 | **1.52** |
+| R0011937 | 2.06 | 1.63 | 2.33 | **1.59** | 3.45 | 4.54 | 6.38 |
+| R0011938 (Saturation High in EXIF) | 3.06 | **2.60** | 3.10 | 2.70 | 4.50 | 5.71 | 7.57 |
+R0011936 is unmistakably Classic Neg at the v12 level (v12 camera vs model 1.2-1.5), so a film on a new tone renders
+as modelled. R0011937/38 can't be told apart between Portra and Gold from the scene alone (and R0011938 has a
+saturation change the model doesn't include); which modes were used still to be confirmed by the user.
+
+### 24b. Films v13b: an own icon per film (built 2026-10-10, not yet camera-tested)
+Same build plus icons (`make_slots.patch_film_icons`, `work/films_v13b/`, SHA-256
+4ba9797208b413312904f5c345d6516bf42f73034911e8046896db494097db3f, verify ALL OK incl. an ICONBIN check). ICONBIN can't
+grow and no 40x40 icon is provably unused, but this firmware serves GR III, GR III HDF, GR IIIx and GR IIIx HDF
+(model strings), so model-specific icons are free on a plain GR III: HDF on/off 0x05-0x07 (40x40, redrawn in place),
+GR IIIx certification marks 0x1D (720x360; the GR III page is 0x1E with FCC ID 2ACZS-R02010, 0x1D shows R05010),
+GR IIIx TELE 0x2D and 71mm crop 0x2E. 0x1D/0x2D/0x2E get 40x40 descriptors (descriptors are in RTOS rodata,
+0x53B5xxxx) pointing into 0x1D's pixel area (3 x 6400 of its 1,036,800 B). The icon caves return ids from a table:
+Portra 0x05 "P400", Ektar 0x06 "E100", Gold 0x07 "G200", 400H 0x1D, 250D 0x2D, Classic Neg 0x2E, drawn as the
+Positive Film strip with the v12 labels (`work/films_v13b/icons.png`). Not for HDF or IIIx cameras.
+
+### 24c. Films v13c: adjustments shared with Standard (built 2026-10-10, not yet camera-tested)
+User choice: the films share Standard's sliders instead of Positive Film's. `make_slots.PROXY` 17 -> 11 (nothing else
+changed; `work/films_v13c/`, SHA-256 c96cdee737a33ac8877ecb3586b4e107245758aff885228d309af8cd0d332ab9, verify ALL OK,
+52 checks, the verifier's reference matrix follows PROXY). Standard has the same nine adjustments as Positive Film
+(still jump tables: saturation/hue in Std, Vivid, Positive, Bleach, Retro, HDR, Cross, Negative; key, contrast, HL,
+shadow, sharpness, shading in all but HDR; clarity in all but Soft mono and HDR), 27 checks as well, and its case
+0x536DBAA4 in the pipeline pass-through does the same as Positive's 0x536DB8FC (raw values from SI+0x77D..0x784,
+0x793/0x794). Per-film storage was ruled out: no known spare bytes in the 0xB26-byte user settings (90-320 B needed)
+and about 84 B code left.
+
+## 25. Films v14: Cinema (Yellow) / Cinema (Green) / Vision3 500T replace Bleach Bypass / Retro / Cross Process in the still list (built 2026-10-10, not yet camera-tested)
+`make_slots14.py` + `verify_slots14.py` (copies of the v13c tools, which still reproduce v13c byte for byte),
+`work/films_v14/build.sh`. `work/films_v14/fwdc239b.bin` SHA-256
+e7abf7ba2146338bd49557e3f5c1e8ebb55f1719a2bd46824a45f6bf9b99d1bc, verify ALL OK (67 checks). List (sets No0-2, still
+and RAW dev): Std, Vivid, Mono, Soft, Hard, HiCon, Negative, Positive, **31 Cinema (Yellow)**, **32 Cinema (Green)**,
+HDR, **33 Vision3 500T**, 25-30 films. Movie list untouched; the stock modes stay in the firmware (records, pipeline).
+`key@T=fit.json` on the command line = film replaces stock tone T in the list.
+
+**GR IV Cinema (fwdc248b, tones 18/19).** Differs from Standard in look matrix, MultiAxial set and RGB curves. Curve
+composite 0x5391E340 (struct per tone {ptr, u8 en, u8 mix, R, G, B} via table 0x55053138): R' = (r0 G + r1 R)/3,
+B' = (r0 G + r1 B)/3, G unchanged, r1 = min(ColorTone + 1, 3), r0 = 3 - r1; ColorTone = ctx+0x60 = SI+0x7A6 (0..2,
+shown 1..3), both cinema modes mix (emulated). Default ColorTone = 1 for both, every set (defaults struct built by
+0x535278D8 at 0x5508A820, +0x1AC/+0x1AD). Base gamma identical to GR III; composite = curve(base) exactly.
+Port: matrix = (L4cin L4std^-1) STD_LOOK (same shift from Standard as on the GR IV), curves = mixed curves at
+ColorTone 1, no post matrix. MultiAxial (60 zone matrices, strong) not ported (no working MultiAxial on GR III, §18a),
+so the port is matrix + curves only. Tools in `work/films_v14/gr4/`.
+**Vision3 500T**: spektrafilm 0.3.4 `kodak_vision3_500t` on `kodak_2383` (`spektrafilm-lut build ... --input vlog
+--output srgb --resolution 33`, bundle in `work/films_v14/lut_vision3500t_2383/`, CC BY-SA 4.0), fit as 250D
+(cube_fit --boost 4 --neutral 3, joint_fit, lab_fit): general / warm / ColorChecker / camera chart 2.27 / 1.72 / 1.54 /
+2.27 (Standard vs target 6.74).
+
+**Changes vs v13c.**
+* Compact knots: u16 first knot + 32 u8 steps (x8) per curve, 104 B per film (was 198); max error vs the curves
+  25-35/16384 for the films, 53/62 for Cinema Y/G. Expander: entry i = knot(i>>3) + step(i>>3)*(i&7). One knot pointer
+  per film (curves at +0/+34/+68).
+* Records: slots 9, 8, 6 for the three; slot 6's look matrix is shared in stock, so its film matrix lives in the
+  curve area. **Slots 6/8 (and 10, 13-16, 24) have the mono YCbCr set 0x53DC5584 in table 0x55018E4C** (hue ignored);
+  film slots now get Standard's 0x53DC555C.
+* Proxy by table: stub `cmp rX,#25; sublo rX,#11; bxlo lr; ldrb rX,[tab-25+rX]` (ip is never used in the 18
+  functions). Standard's 27 checks accept tones 25-30 only (`sub ip,r3,#25; cmp ip,#6; cmphs r3,#11; bls T`); Bleach,
+  Retro and Cross each have 30 checks (+ toning / preset), rewritten to accept 31 / 32 / 33.
+* Icons: ids 0x2A0-0x2A2 behind the catalog: the id getters' out-of-range path (0x53209FC4/0x53209FF8) and the draw
+  function's catalog load (0x5320A80C, bound 0x5320A7CC) serve them from an 8-byte descriptor table; pixels carved
+  from 0x1D (6 x 6400 B used). Other 0x29E constants in the RTOS are unrelated (checked).
+* Code may also go into the curve area (RX); free after v14: 16+28+28 B code areas, 4+16 B curve area.
+* armasm: bls/bhi abs() added.
+Not verified on camera: everything above. Replaced stock tones in saved settings (18/19/21 in a still set or Custom)
+are no longer in the list (tone->index returns the count) - switch away before flashing.
+
+## 26. Films v15: the three replacements in the movie list too; Cross curves freed (built 2026-10-10, not yet camera-tested)
+User choice: replace Bleach Bypass / Retro / Cross Process in the movie list as well, so their storage can be reused
+instead of compacting the knots. `make_slots15.py` + `verify_slots15.py`, `work/films_v15/build.sh`;
+`work/films_v15/fwdc239b.bin` SHA-256 50d75f3597d1e826ff660ee86a68957c141768ebaa03d72f73ac14b759b3b8dc, verify ALL OK
+(73 checks). Only Cross Process frees real space: Bleach/Retro own just a look matrix + toning in their records.
+* Movie list: tables 0x53B59234 / 0x53B591C8 / 0x53B5936C (sets No0-2, 10 entries [11,12,13,15,16,22,17,18,19,21])
+  patched in place -> [..., 31, 32, 33]; tone->index for movie uses the same tables.
+* Movie tone storage: active set +0x57C, set No0 tone +0x57E, No1 +0x580, No2 +0x582. Movie "is active mode" checks
+  (81 per set pattern): No0 12 words `ldr [0x57c]; bic; bic; cmp #tone<<16`, No1/No2 13 words `ldrb [0x57c]==set;
+  ldrb [0x580/0x582]==tone`. Bleach 27, Retro 27, Cross 30; rewritten to accept 31/32/33.
+* GetMovieDispImageControl 0x5326C384 (switch on +0x57E, default 0x5326C3F4 -> fail 0x5326C454, return 0x5326C3E0):
+  default -> cave (films = own tone), as the still one.
+* The 18 Set*/GetDefaultValue* proxy switches cover the movie tables already (verified per mode).
+* Cross gone: the ctx fill no longer branches to the preset chain for tone 21 (stale tone 21 = Cross minus curves,
+  diffs only in gamma), so library curves 3-11 (ROM 0x53EFB4E4.., 9 x 512 B) are free. Library areas form three
+  runs: 0x53EFB0E4-0x53EFB6E4 (11, 0, 4), 0x53EFB710-0x53EFB910 (3), 0x53EFB928-0x53EFC928 (7, 5, 9, 8, 1, 10, 6, 2).
+  Knots (v13c 33 x u16, 198 B, max 36/16384 off the fits) go into the first run = one expander range (cmp #0x600);
+  Cinema Y/G store their exact 256-entry curves (6 x 512 B) in the third (pointers outside the knot range, passed
+  through unexpanded); composite vs GR IV curves 1/16384. ~1.1 KB left.
+* Not emulated: a separate movie-recording pipeline (only still and live view stages), movie-specific permission
+  code using the UserData::ImageControl enum.
+
+## 27. How much do sensors differ? (offline estimate, 2026-10-10)
+
+`work/sensor_diff/sens.py` on the RIT camspec database (Jiang et al. 2013, 28 measured cameras, 400-720 nm,
+CC BY-NC-SA; no Ricoh, no Fuji, only the old Hasselblad H2 CCD; Pentax K-5 = closest GR proxy). ColorChecker 24
+(Ohta spectra), white-preserving 3x3 fitted to minimise dE2000, errors in-sample (so optimistic).
+- Camera -> XYZ, best 3x3: typical DSLR 0.65-0.95 mean / 2-3.5 max dE2000; Hasselblad H2 1.5 / 4.5; Pentax K-5 0.8 / 3.0.
+- Camera A -> camera B (port a look defined on B's colour): 756 pairs, mean dE median 0.67, 90th pct 1.5;
+  worst patch median 2.2. K-5 -> H2 0.97 / 2.3 (cyan, skin, red), K-5 -> Phase One 1.4 / 3.7, K-5 -> NEX-5N 0.5 / 1.6.
+- Same camera, D65 matrix reused under tungsten after WB: ~3 mean / 8-10 max (vs ~0.9 / 2.1 with its own A matrix).
+=> After a correct 3x3, sensor differences are ~1 dE (worst ~2-4 on cyan/skin/red); the illuminant-dependent matrix
+   and the vendor look (non-linear hue/sat tables) are much bigger than the sensor itself.
+
+## 28. GR4-LUTSmith 1.3.0 vs our fits (2026-10-10)
+
+`work/compare/lutsmith13.py` (log `lutsmith13.log`; the 1.2.0 run is `lutsmith.py`/`lutsmith.log`): LUTSmith's own
+Fitter/HueFitter, unchanged, on the GR III base gamma with our samples and weights; scored against the same spektrafilm
+targets as our v11/v12 lab fits. New in 1.3.0: colour after the curves (= our CSP post matrix) and turns (random starts;
+here 3 + a warm start from its 3-curve fit, best kept by the 'general' score, which favours it).
+Mean dE2000 general / warm / ColorChecker / camera chart:
+
+| Film | ours (v13+) | LS 3 curves (1.2-level) | LS + after curves | LS + after + hue sectors (GR IV only) |
+|---|---|---|---|---|
+| Ektar 100 | 2.32 / 1.95 / 1.65 / 2.30 | 4.08 / 4.20 / 3.13 / 3.85 | 3.05 / 2.31 / 1.69 / 2.57 | 2.81 / 2.19 / 1.63 / 2.32 |
+| Gold 200 | 2.10 / 1.58 / 1.39 / 1.87 | 3.65 / 3.22 / 2.77 / 3.49 | 2.64 / 2.02 / 1.48 / 2.06 | 2.63 / 2.02 / 1.58 / 2.12 |
+| Pro 400H | 2.07 / 1.50 / 1.46 / 1.95 | 3.31 / 2.71 / 2.57 / 3.04 | 2.88 / 1.83 / 1.47 / 2.29 | 2.76 / 1.80 / 1.65 / 2.29 |
+| Portra 400 | 2.14 / 1.66 / 1.45 / 1.98 | 3.98 / 3.24 / 3.02 / 3.79 | 2.80 / 2.12 / 1.54 / 2.26 | 2.77 / 2.08 / 1.58 / 2.24 |
+| Vision3 250D | 2.13 / 1.66 / 1.73 / 2.42 | 3.61 / 2.62 / 3.35 / 4.21 | 2.61 / 1.62 / 1.90 / 2.75 | 2.52 / 1.58 / 1.84 / 2.65 |
+| Classic Neg | 1.51 / 1.16 / 1.14 / 1.33 | 2.68 / 1.61 / 2.33 / 2.46 | 1.64 / 1.00 / 1.07 / 1.77 | 1.32 / 0.94 / 0.86 / 1.10 |
+
+With the same levers the GR III has (matrix, 3 curves, post matrix), ours is better on 21 of 24 numbers and on
+'general' for all six (by 0.1-0.8); LUTSmith wins only Vision3 warm and Classic Neg warm/ColorChecker (0.04-0.16).
+1.3.0 closed most of the 1.2.0 gap (after curves is the big lever, as for us in v10). With the GR IV hue sectors it
+beats us on Classic Neg and roughly ties elsewhere; GR III's MultiAxial never acted on stills (§18a). Its GR IV hue
+patch replaces a selector byte table (0x02 x 56) with pointers and the ramp tables with 12 Q10 matrices - a possible
+lead for the GR III MultiAxial enable, not checked.
+
+### 28a. GR4-LUTSmith 1.6.0 vs v16 (2026-10-10)
+1.4.0-1.6.0 only add slot choice, slot name and icon; Fitter, HueFitter, fit_look, hue_apply_q and post_effective are
+byte-identical to 1.3.0, and `work/compare/lutsmith16.py` (log `lutsmith16.log`) reproduces 1.3.0's Classic Neg exactly.
+New: Vision3 500T, LS all levers 2.63 / 1.58 / 1.68 / 2.41. With hue sectors now on both sides (v16 joint fits, §33),
+general / warm / CC / chart, v16 vs LS 1.6.0 (matrix + curves + after curves + hue sectors): Portra 1.93/1.47/1.38/1.82
+vs 2.77/2.08/1.58/2.24; Ektar 2.11/1.77/1.64/2.16 vs 2.81/2.19/1.63/2.32; Gold 1.97/1.48/1.42/1.88 vs
+2.63/2.02/1.58/2.12; Pro 400H 1.88/1.30/1.48/1.94 vs 2.76/1.80/1.65/2.29; 250D 1.96/1.45/1.63/2.29 vs
+2.52/1.58/1.84/2.65; Classic Neg 1.20/1.01/1.09/1.12 vs 1.32/0.94/0.86/1.10; 500T 1.98/1.43/1.42/1.99 vs
+2.63/1.58/1.68/2.41. v16 better on 24/28 numbers, 'general' mean 1.86 vs 2.49; LS keeps Classic Neg warm/CC/chart
+and ties Ektar CC.
+
+## 29. GR III vs GR IV MultiAxial sets: same structure, GR IV stock actually uses it (2026-10-10, offline)
+
+GR4-LUTSmith's hue-sector patch (decoded offsets 0x13E68CC/0x13E6954/0x13E69DC and 0x10B1638..; RTOS at decoded
+0x17D10) points one slot in GR IV's per-slot MultiAxial set table (3 arrays x 34, 0x55053504 / +0x88 / +0x110, slot 30)
+at a new set in a padding area (0x54099928) that copies stock set 0x54049DE8 with its own matrix list (0x54099968).
+The GR III has the identical layout: per-slot table 0x55018CF0 (26 slots, all -> 0x53DC2BA0), set = [bounds u16x16,
+selectors u8x20, RAM matrix-pointer list x8, 10-bit table object, control u16, YCbCr coeffs]. GR IV's *default* set
+0x5404A690 has exactly GR III's values (bounds/selectors 0, thresholds 4095, same control tail). The difference is that
+GR IV stock uses active sets: slot 11 -> 0x54049DE8, slots 17/18/19 -> 0x5404A6A8 / 0x5404B800 / 0x5404C6D4, all with:
+- bounds (1298,750,0,0, 1448,843,0,0, 1298,750,0,0, 1205,843,0,0): pairs, not 16 monotonic hue boundaries
+  (our probes used i*256, i.e. the wrong format);
+- selectors 0,1,2,2,2,3,4,5,5,5,6,7,8,8,8,9,10,11,11,11 (12 zones; ours used i or all-equal);
+- control 32, 328,328,328, 293,800,1600,2400,3200, 32, **1024,1024,1024,1024**, 0,0,0,0,0, 640,1280
+  vs GR III stock 0, 4095 x8, 32, **0,0,21,62**, 0,1,2,7,0, 640,1280. Control[0]=32 and control[10..13]=1024 (Q10 1.0,
+  probably zone strengths; GR III 0/0/21/62) were never tried in probe rounds 1-4.
+=> Strong lead that §18a's "nothing enables MultiAxial" was a parameter problem, not missing hardware. Next: probe 5 =
+GR IV's active set copied verbatim (bounds, selectors, control, marker matrices) into one GR III slot.
+
+## 30. MultiAxial probe, round 5 (built 2026-10-10, not yet shot)
+`make_ma_probe5.py` -> `work/ma_probe5/fwdc239b.bin` (SHA-256 0da55084...fd66ff33, on stock 2.10), `verify_ma_probe5.py`
+ALL OK (stock modes identical; probe modes differ from Standard only in MultiAxial registers; each ablation differs from
+Positive only in its field's registers). GR IV active set (§29, `work/ma_probe5/gr4_std_ma.json`) + marker matrices
+(zone z -> grey gain 0.85/0.30/0.75/0.40/0.65/0.50 repeating, all 5 levels):
+
+| Mode | change vs Positive (GR IV set + markers) |
+|---|---|
+| Positive | - (main test) |
+| Vivid | selectors 0 |
+| Negative | control[10..20] GR III stock (0,0,21,62,0,1,2,7,0,640,1280) |
+| Retro | control[0] 0 |
+| HDR Tone | thresholds 4095 |
+| Cross | bounds 0 |
+Shoot as `work/ma_probe5/HOW_TO_SHOOT.txt` into photo-ma5/.
+
+### 30a. Probe round 5 result (photo-ma6, R0011950-55, 2026-10-10) — **MultiAxial works on GR III stills**
+Desk scene (not the hue chart), 1/200 f/2.8 ISO 160 (Cross ISO 125), Multi Auto WB (gains equal within 1 %), no Standard
+shot. Per-region JPG mean / high-pass noise SD (wall, paper, screen):
+- Negative (control[10..20] back to GR III stock): clean (hf 1.1-1.4), brightest (wall 96) -> MultiAxial off.
+- Vivid (selectors 0 = every hue -> zone 0, gain 0.85): clean but darker (wall 86 vs 96) -> MA on, one uniform zone.
+- Positive (full GR IV set), Retro (control[0] 0), HDR (thresholds 4095): strong salt-and-pepper (hf 7-9), wall 60-66:
+  near-neutral pixels' noisy hue flips them between marker zones (gains 0.30-0.85) -> MA on, zones active.
+- Cross (bounds 0): same speckle on the wall/paper but the saturated teal screen is clean (hf 0.8) -> the "bounds" pairs
+  gate something chroma-dependent, not the hue partition.
+=> The enable is in control[10..20]: GR IV 1024,1024,1024,1024,0,0,0,0,0 vs GR III stock 0,0,21,62,0,1,2,7,0 (most
+likely the four 1024s). control[0] and the thresholds are not required. Zone geometry still unmapped (needs the hue chart).
+
+### 30b. Probe round 5 hue chart (photo-ma6 R0011959 Negative = MA off, R0011960 Positive = markers), 2026-10-10
+`work/ma_probe5/zones.py ~/dev/GR4-LUTSmith` (log `zones.log`): per patch gain Positive/Negative in the linear index
+domain, compared with GR4-LUTSmith's GR IV sector model (12 sectors by Cb/Cr angle of the post-look-matrix signal,
+edges 359.8, 27.4, 62.2, 92.6, 112.0, 142.8, 179.2, 211.4, 238.6, 267.2, 306.0, 326.5 deg; sector g -> matrices 5g..5g+4).
+Measured gains are compressed per chart row (obs = 0.04..0.20 + 0.73..0.92 x marker, larger offset on the darker rows:
+monitor flare / black offset, not chroma). After that per-row correction, the 172 coloured patches more than 3 deg from a
+sector edge match the predicted marker on 167 (median error 0.025, corr 0.98); the misses are next to edges or between
+close markers (0.75/0.85). => GR III MultiAxial = GR IV hue sectors, same geometry and matrix layout; LUTSmith's
+HueFitter model applies to the GR III as is. Space: one 60-matrix table (2160 B) per look.
+
+## 31. v16 planning: what hue sectors add to v15 (2026-10-10, offline)
+`work/v16_plan/hue15.py ~/dev/GR4-LUTSmith` (log `hue15.log`, sectors in `hue_sectors.json`; plan in `work/v16_plan/PLAN.md`).
+Sectors-only fit (v15 matrix/curves/post fixed), mean dE2000 general: Portra 2.14->1.96, Ektar 2.32->2.14, Gold
+2.10->1.99, 400H 2.06->1.94, Vision3 250D 2.13->1.99, Classic Neg 1.51->1.23, Vision3 500T 2.27->2.03.
+GR IV MultiAxial sets (tones 11/17/18/19, `work/ma_probe5/gr4_ma_sets.json`) all use the probe-5 geometry/control; their
+5 levels per sector are the level-0 matrix scaled by 1 - l/16. Cinema (Yellow)/(Green) sets vs the v15 port (level 0):
+render moves 1.53/1.33 dE2000 mean (camera chart 2.17/1.73, p95 up to 4.8) = what the v15 Cinema port is missing.
+Space plan: shared set + compact 72 B/film + register-writing stub after the MultiAxial calc (fits the ~1.1 KB free).
+
+## 32. White balance through the looks (2026-10-10, spectral simulation)
+`work/wb_sim/wb_sim.py` (log `wb_sim.log`). ColorChecker 24 (Ohta spectra) x 3 exposures; camspec sensitivities of the
+Pentax K-5 (GR III proxy) and Sony NEX-5N; raw -> WB gains -> camera matrix (fitted at D65) -> look (Standard or each v15
+film). Reference = the same look on the true scene adapted to D65 (CAT02). Mean / max dE2000, K-5 (NEX-5N within ~0.2):
+
+| Case | Standard | films (range) |
+|---|---|---|
+| daylight 6500K, ideal AWB | 0.69 / 1.9 | 0.68-0.81 / 2.0-4.2 |
+| sun 5000K / shade 7500K | 1.10 / 0.87 | 0.78-1.10 |
+| tungsten 2856K, fixed D65 matrix | 3.00 / 12.7 | 2.43-2.89 / 11.5-16.8 |
+| fluorescent (FL2 / FL11), white LED 4100K | 2.1-2.5 / 11-14 | 1.5-2.5 / 9-16 |
+| same lights, matrix made for that light | 0.49-0.85 / 1.8-3.3 | 0.42-0.92 / 1.4-4.6 |
+| daylight, AWB off by ~-1000K / +1000K | 3.88 / 2.97 | 2.8-3.4 / 2.3-2.8 |
+| daylight, green gain -3% / +3% | 2.28 / 1.86 | 1.6-2.0 / 1.3-1.7 |
+| tungsten, AWB left warm (3200K / 3500K) | 5.7 / 8.4 | 4.7-5.5 / 6.6-8.1 (intended warmth, not an error) |
+
+- The films do not amplify white-balance errors: every case is within ~±0.5 of Standard, usually lower (the film curves
+  compress chroma). WB robustness is a camera issue, not a film-fit issue.
+- With ideal AWB the error under non-daylight light comes almost entirely from the camera matrix: a matrix fitted for
+  that light brings tungsten from 3.0 to 0.85 and fluorescent/LED to ~0.5-0.6. Whether the GR III adapts its
+  sensor->RGB matrix to the light is unknown: the R2Y ColorMatrix calc 0x536DEECC only multiplies the look matrix by the
+  Saturation matrix (record [+8] list, 9 entries, index ctx+0x57, entry 4 = identity) and an optional fixed matrix
+  0x53DC1430 (colour space, ctx+0x52); the sensor matrix is applied before R2Y and was not located. The DNGs carry two
+  calibrations (ColorMatrix1/2), which suggests interpolation, unverified.
+- Test to settle it: RAW+JPG of a ColorChecker / the hue chart under a tungsten lamp, Standard, AWB; compare with the
+  check_v13-style model using the daylight EK. If the JPG matches the model only after a tungsten-specific EK, the camera
+  interpolates and the films inherit it; if not, a WB-dependent look-matrix correction would be a v16+ candidate.
+
+## 33. Films v16: hue sectors (MultiAxial) for every film (built 2026-10-10, hue chart camera-tested §33b)
+`work/films_v16/build.sh` -> `work/films_v16/fwdc239b.bin` (SHA-256 9d81366c...7faf6d71 incl. §34, §34a, §34c, §34d), `verify_slots16.py` ALL OK (103).
+- Fits (`work/films_v16/refit16.py`, log `fits/refit.log`): sectors on v15 -> lab_fit with the sectors in the model ->
+  sectors again (LUTSmith HueFitter penalties; off-diagonals in steps of 4/1024). Mean dE2000 general / warm / CC /
+  camera chart, v15 -> v16: Portra 2.14/1.66/1.46/1.98 -> 1.93/1.47/1.38/1.82; Ektar 2.32/1.96/1.64/2.29 ->
+  2.11/1.77/1.64/2.16; Gold 2.10/1.58/1.39/1.87 -> 1.97/1.48/1.42/1.88; Pro 400H 2.06/1.50/1.45/1.94 ->
+  1.88/1.30/1.48/1.94; Vision3 250D 2.13/1.66/1.73/2.42 -> 1.96/1.45/1.63/2.29; Classic Neg 1.51/1.16/1.14/1.33 ->
+  1.20/1.01/1.09/1.12; Vision3 500T 2.27/1.72/1.55/2.27 -> 1.98/1.43/1.42/1.99.
+- Cinema (Yellow)/(Green): GR IV MultiAxial sets of tones 18/19, level 0 quantised to steps of 4 (max 4/1024 off);
+  levels 1-4 = level 0 x (16 - l)/16 in the stub (GR IV's own tables differ from that rule by at most 1/1024).
+- Firmware (`make_slots16.py`): stock 10-bit table 0x53DC2BF8 (1440 B zeros; only object 0x55019848 points at it) now
+  read from zeros at 0x53D36400 (5404 B zero run in read-only data, no pointers into it); the freed 1440 B hold the
+  shared GR IV bounds + selector/control block, 9 x 108 B sector data (12 x 9 int8, matrix = 1024 I + 4 x data) and
+  nine 7-word set structs (stock words 0-5 + data pointer | GR IV level flag) in the film slots of 0x55018CF0.
+  MultiAxial Make 0x536E4470 -> new Make (176 B, curve area 0x53EFC5E8): stock calc + writer, then for a film set it
+  rewrites the 60 matrix registers (regs + 0x100 + 128 sector + 20 level, bfi 12 bits).
+- Verified in emulation (still + live view): stock modes 11-22 MultiAxial registers identical to stock (also right
+  after a film); each film's registers = GR IV bounds/selectors/control + its matrices at all 5 levels, also after
+  another film or Standard; all v15 checks.
+- Open: camera test (HOW_TO_TEST.txt), what selects the 5 levels (films use one matrix for all, so only Cinema
+  depends on it), movie recording path.
+
+### 33a. v15 vs v16 on earlier real RAW files (offline, 2026-10-10)
+`work/films_v16/check_prev.py ~/dev/GR4-LUTSmith` (log `check_prev.log`, sheets `preview_*.jpg`: v15 | v16 | target).
+DNG -> rawpy linear (camera WB) -> EK (photo-v10 Standard chart) -> exposure from the Standard model fitted to the
+camera's own JPG -> each film model (v15 / v16 incl. sectors) vs its target, all usable pixels at 480x320.
+Whole photo-v10 chart frame and the three photo-v13 scenes, 7 cube films: mean dE2000 v15 0.94 -> v16 0.84, v16 better
+in 28/28 (chart frame: Portra 1.29->1.15, Ektar 1.41->1.29, 500T 1.25->1.09, Classic Neg 0.82->0.74; p95 down 0.1-0.7).
+v16 vs v15 change on these scenes 0.14-0.46 mean (p95 0.3-1.7); Cinema Y/G change 0.4-1.25 mean (p95 up to 4.0).
+This scores the model against the target; the camera itself is only checked by the earlier validations (v10: camera
+vs model 0.55-0.80; §30b: MultiAxial geometry/gains on the probe-5 chart) until photo-v16 exists.
+
+### 33b. v16 on camera: hue chart (photo-v16 R0011993-12005, 2026-10-10)
+`work/films_v16/check_v16.py ~/dev/GR4-LUTSmith` (log `check_v16.log`; method as check_v13: DNG -> rawpy linear -> EK ->
+exposure + radial shading fitted per look, all flat unclipped pixels at 375x250). Shots in list order: Standard, Vivid,
+Negative, Positive, Cinema Y, Cinema G, Vision3 500T, Portra, Ektar, Gold, Pro 400H, Vision3 250D, Classic Neg.
+- Every film shot is recognised (best of 19 looks = the selected film, runner-up 0.25-2.7 worse).
+- Camera vs model, v15 model (no sectors) -> v16 model (sectors): Cinema G 1.12 -> 0.82, 500T 0.66 -> 0.54,
+  Portra 0.81 -> 0.78, Ektar 0.74 -> 0.71, Gold 0.80 -> 0.79, Pro 400H 0.72 -> 0.63, 250D 0.75 -> 0.57, Classic Neg
+  0.73 -> 0.71: mean 0.79 -> 0.69, v16 closer in 8/8. Standard 0.68. So the camera applies the sector matrices as
+  modelled (Cinema G's GR IV set included, level semantics untestable here: a uniform level factor = exposure).
+- Cube films vs film target: camera 1.32, v16 model 0.95, v15 model 0.97 (the camera-model gap ~0.7 is the method floor).
+- Cinema Y (R0011997) is the exception: 2.74 to either model, +0.65 EV brighter. EXIF Contrast High, Saturation High on
+  this shot only: Cinema Y lives in the Bleach Bypass slot and uses that slot's own stored sliders (proxy layout 8), so
+  old BB slider values apply. A generic contrast + chroma (x1.46) + gain fit brings it to 1.88. Needs a reshoot with the
+  Cinema Y sliders reset.
+- Stock Vivid/Negative/Positive: no model here (MultiAxial off for them is verified in emulation only).
+
+## 34. Playback RAW development with films (fixed in v16, 2026-10-10, not yet camera-tested)
+User report (v15): RAW development cannot change Image Control to a film. Cause (present since v13, never tested):
+RawDevelopmentModel (Model/RawDevelopmentModel.cpp) keeps its own image-control enum per develop slot (+0x83/+0x84/+0x85,
+slot index +0x82; 0 = as shot, 1..12 = 11,12,13,14,15,16,22,17,18,19,20,21) with two hard-wired conversions:
+ConvertToRawDevelopmentModelImageControl 0x53288D5C (tone -> enum, `sub r1,#0xb; cmp #0xb; ldrls pc`, default
+assert -> enum 1 = Standard) and ConvertToCommonPropertyImageControl 0x53289058 (enum -> tone, default assert -> 11).
+A film tone therefore became Standard; the RAW-dev slider page (RawDevelopmentImageControlDetailSetController::
+GetBaseKindDetailControl 0x5318DEA0) asserted on it too. Parameter cache: 3 x 13 x 17 B at model+0x86; all 62 accessors
+look the enum up in 1..12 and use entry 0 (as shot) for anything else, so new enum values are memory-safe.
+Fix (make_slots16.patch_rawdev): tone -> enum stub at 0x53288D5C (appended films -> 13..18, replacing films -> the enum of
+the replaced mode 9/10/12); enum -> tone: 13..18 -> 25..30 via the default branch, entries of enums 9/10/12 -> 31/32/33;
+RAW-dev and shooting slider-page layout (0x5318DEA0 entry, 0x531ACB1C `cmp r4,#0xb` - the earlier `sub` at 0x531ACB00 sits
+between a compare and its conditional use, a stub there broke an assertion in emulation) -> the film's proxy layout.
+Emulated: stock conversions unchanged, every RAW-dev list entry round-trips tone -> enum -> tone, layouts = proxy, no
+assertions. In RAW development a film's sliders use the as-shot parameter cache (entry 0).
+
+### 34a. RAW development list stopped at 12 entries (user report on e27752e1, fixed 2026-10-10, not yet camera-tested)
+User (v16 e27752e1): the six appended films do not appear in RAW development (the three replacements do). The RAW-dev
+Image Control list (RawDevelopmentImageControlDetailSetController 0x53190108, scroll list 0..count-1) takes its length
+from RawDevelopmentModel 0x53283C08 `mov r0,#0xc; bx lr`, hard-wired, not from ImageControlModel's (patched) count;
+rows go through 0x53283C80 -> index->tone 0x532C2C80 (mode 2, patched since v13) and selection through 0x532893BC
+(tone -> enum, §34). The earlier emulation called 0x532C2C80 for 18 indices directly and so missed the length.
+Fix: 0x53283C08 -> `mov r0,#18` (12 + appended films). Neighbour 0x53283CD0 (also 12) is the white-balance list.
+Rebuilt `work/films_v16/fwdc239b.bin` SHA-256 9ad5ef4d7149a9a5d9d1c03b6d7d0e9f680ff040f4bf3f754efc3c4edfc8ffb2, ALL OK (100).
+
+### 34b. Camera report on 9ad5ef4d: RAW-dev list still shows only the replacements; film RAWs open as Standard (2026-10-10, open)
+User: in RAW development only Cinema Y/G and 500T appear among the films, and RAWs shot in the six appended films "jump
+back to Standard". As-shot cause found (static): playback reads the image tone from the file's maker-note ImageTone via
+0x535BF7B0 (code - 257 <= 10 -> table 0x53D2D920 -> tones 12..22, anything else -> 11 Standard), and every film shot
+(appended and replacing, e.g. R0011997 Cinema Y) is written as ImageTone 256 = Standard, so the as-shot film is lost
+before RawDevelopmentModel sees it. Fix needs a film-specific ImageTone code on write (writer not located yet) plus
+the reader table; external tools would then show an unknown ImageTone value. List: 0x53283C08 now returns 18 in the
+build (checked in the decoded image); why the camera list still ends at 12 is not explained yet - other list paths in
+RawDevelopmentImageControlDetailSetController / RawDevelopmentParameterSetController still to check.
+
+### 34c. As-shot film in the file: maker-note ImageTone codes for films (built 2026-10-10, not yet camera-tested)
+Writer found: 0x535C780C/0x535C7814 searches a vector of {u8 tone, u8 0, u16 code} (global 0x5534AD6C, built by the
+static constructor 0x53599DF0 from 12 pairs at 0x53D2B6F4: tones 11..22 -> 0x100..0x10B) for SI+0x77C and writes
+Pentax tag ImageTone via 0x535D02C8; tone not found -> 0x100 (Standard). Reader 0x535BF7A8 (code - 0x101 <= 10 ->
+table 0x53D2D920, else 11). Patch (make_slots16.patch_exif_tone): pairs copied + one per film (tone 25+k -> 0x10C+k,
+i.e. 268..276), constructor size/count/end to 21 entries; reader `cmp r0,#0xa` -> 19 and table relocated with tones
+25..33 appended. Emulated: stock tones write/read unchanged, films write 268..276 and read back their own tone, an
+unknown tone still writes 256 -> 11. Old film shots keep 256 in the file and still open as Standard. exiftool shows
+the new codes as unknown ImageTone values. (0x536EEFFC/0x536EEE30, a separate tone<->code pair in the tuning-parameter
+builder 0x536EF148, is not the maker-note path and was left alone.)
+`work/films_v16/fwdc239b.bin` SHA-256 82d2ae46eb7f32a201213366216fc7cd444357d516b9a91de3434c70e1f46e71, ALL OK (101).
+The RAW-dev list length (§34b) is still unexplained (solved in §34d).
+
+### 34d. The RAW-dev Image Control list is the parameter screen's own option table (built 2026-10-10, not yet camera-tested)
+User photos (82d2ae46): as shot now shows Portra 400 (§34c works); the Image Control list runs ... Nega, Posi, C-Y, C-G,
+HDR, 500T, then a '1' (develop setting) entry. That list is RawDevelopmentParameterSetController's Image Control row
+(case 8, 0x5318B434), not the detail page of §34a: options = [as shot if the file has one (model+5)] + enum table
+0x53B5A988 (1..12) + develop settings 1/2; count 0x53283358 (15/14), option -> slot 0x532834D0 / -> enum 0x532834F0 via
+slot table 0x53B5ACB4 ([0]x13 + 1, 2; read at i or i+1), selection 0x53289304 (slot, enum) -> enum at +0x83+slot. Row
+capacity (largest option count over all rows; that many list items are allocated) 0x532833BC = 15.
+Patch: enum table relocated with 13..12+m appended, slot table with m more zeros, 9 movw/movt, counts 15+m / 14+m,
+capacity 15+m. Emulated: 21 / 20 options = as shot, the 12 stock entries (incl. C-Y/C-G/500T), the six films
+(enum -> tone 25..30), set1, set2; capacity 21.
+`work/films_v16/fwdc239b.bin` SHA-256 9d81366c26281b726ef733d681bbbf2df3febbc438a1967ce254ae997faf6d71, ALL OK (103).

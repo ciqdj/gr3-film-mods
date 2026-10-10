@@ -13,7 +13,7 @@ sys.path.insert(0, '.')
 import numpy as np, colour
 from scipy.optimize import least_squares
 import cube_fit as cf
-from cube_fit import samples, warm_samples, load_target, model, M_from, de2000
+from cube_fit import samples, warm_samples, target_of, model, M_from, de2000
 from joint_fit import q512
 
 NK = 17
@@ -54,7 +54,7 @@ def evaluate(M, P, cv, T, chart=None):
 def lab_fit(f, boost, chart=None):
     cf.NEUTRAL = 3.0
     L, w, _ = samples(boost=boost)
-    T = load_target(f['presets'][0]['spec'], 'vlog', 0)
+    T = target_of(f['presets'][0])
     tl = lab(T(L))
     sw = np.sqrt(w / w.mean())
     dE = lambda M, P, cv: sw * colour.delta_E(lab(render(M, P, cv, L)), tl, method='CIE 2000')

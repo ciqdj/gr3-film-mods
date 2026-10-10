@@ -11,7 +11,9 @@ also drops its toning offsets, emulated info+0x1674). The fit's 'post_q512' (joi
 'cca1_q512') is applied after the gamma curves through the RGB->YCbCr matrix (film_cave.py). CCA1 is left stock.
 Plus the HDR/Retro fixes of make_films.py, icons, names and optionally the RAW NR limit.
 
-Usage: make_films10.py [--raw-nr-above ISO] vivid.json retro.json hdr.json cross.json bleach.json fwdc239b.bin out.bin [icons.png]
+v12 (--labels v12): same build, Bleach slot named/labelled for Fujifilm Classic Neg ("Classic Neg", icon "NC").
+
+Usage: make_films10.py [--raw-nr-above ISO] [--labels v10|v12] vivid.json retro.json hdr.json cross.json bleach.json fwdc239b.bin out.bin [icons.png]
 """
 import sys, json, struct
 from gr3patch import Image, RECORDS
@@ -74,16 +76,21 @@ if __name__ == '__main__':
         i = sys.argv.index('--raw-nr-above')
         raw_nr_above = int(sys.argv[i + 1])
         del sys.argv[i:i + 2]
+    labels = 'v10'
+    if '--labels' in sys.argv:
+        i = sys.argv.index('--labels')
+        labels = sys.argv[i + 1]
+        del sys.argv[i:i + 2]
     fits = [json.load(open(p)) for p in sys.argv[1:6]]
     img = Image(sys.argv[6])
     info = patch(img, fits)
     if raw_nr_above:
         from raw_nr import patch_raw_nr_min_iso, above_index
         info['raw_nr_above'] = patch_raw_nr_min_iso(img, first=above_index(raw_nr_above))
-    from make_icons import patch_icons, preview, LABELS_V10
-    from make_names import patch_names, NAMES_V10
-    info['icons'] = patch_icons(img, LABELS_V10)
-    info['names'] = patch_names(img, NAMES_V10)
+    from make_icons import patch_icons, preview, LABELS_V10, LABELS_V12
+    from make_names import patch_names, NAMES_V10, NAMES_V12
+    info['icons'] = patch_icons(img, dict(v10=LABELS_V10, v12=LABELS_V12)[labels])
+    info['names'] = patch_names(img, dict(v10=NAMES_V10, v12=NAMES_V12)[labels])
     if len(sys.argv) > 8:
         preview(img, sys.argv[8], modes=('cross', 'vivid', 'retro', 'hdr', 'bleach'))
     data, rep = img.build()

@@ -10,7 +10,6 @@ Usage (library): patch_icons(img, labels) ; preview: make_icons.py out.png
 import struct
 import numpy as np
 from PIL import Image as PImage, ImageDraw, ImageFont
-import codec_path  # noqa: F401
 from gr4_editor.codec.frames import section_rows
 
 CATALOG = 0x550020FC
@@ -25,6 +24,7 @@ LABELS = dict(                        # mode -> (text, colour)
     hdr=('400H', (120, 220, 140)),    # Fujifilm Pro 400H
 )
 LABELS_V10 = dict(LABELS, bleach=('250D', (90, 190, 255)))   # Kodak Vision3 250D on 2383 print (films v10)
+LABELS_V12 = dict(LABELS, bleach=('NC', (110, 205, 200)))    # Fujifilm Classic Neg (films v12)
 
 
 def iconbin(img):
