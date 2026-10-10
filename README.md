@@ -63,9 +63,12 @@ License (by part):
 * Fit data derived from spektrafilm LUTs (`work/**/fits`, except below): CC BY-SA 4.0 + spektrafilm LUT license
   terms; credit spektrafilm, share alike.
 * Fit data derived from FujifilmCameraProfiles LUTs (`work/**/fits/classicneg_*`, i.e. every fit whose `spec` points to
-  that repo): [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/); credit
-  abpy/FujifilmCameraProfiles, non-commercial use only, share alike. This also applies to any firmware image built with
-  these fits: don't sell it or distribute it commercially.
+  that repo): [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) (text in
+  `LICENSES/CC-BY-NC-SA-4.0.txt`). Attribution: adapted from `classic neg_sRGB.cube` by abpy,
+  [abpy/FujifilmCameraProfiles](https://github.com/abpy/FujifilmCameraProfiles), CC BY-NC-SA 4.0. Changes: the LUT was
+  fitted to the GR III look matrix, tone curves and post-curve matrix; the LUT itself is not included. Provided as is,
+  without warranties (license section 5). Non-commercial use only, and adaptations must be shared under the same
+  license. This also applies to any firmware image built with these fits: don't sell it or distribute it commercially.
 * `third_party/gr-custom-tool`: GPL-2.0 (its own `LICENSE`).
 
 Offline only. Input: `../fwdc239b.bin` (SHA-256 `d6a3c9c2…54bfd4`). Addresses are valid for this file only.

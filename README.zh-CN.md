@@ -62,8 +62,11 @@ Kodak Vision3 250D）以及 RAW 降噪修改，全部通过离线修补官方升
 * 源自 spektrafilm LUT 的拟合数据（`work/**/fits`，下列除外）：CC BY-SA 4.0 + spektrafilm LUT 许可条款；
   请注明 spektrafilm 并以相同方式共享。
 * 源自 FujifilmCameraProfiles LUT 的拟合数据（`work/**/fits/classicneg_*`，即 `spec` 指向该仓库的所有拟合）：
-  [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)；请注明 abpy/FujifilmCameraProfiles，
-  仅限非商业用途，并以相同方式共享。用这些拟合数据生成的固件镜像同样适用：不得出售或用于商业分发。
+  [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)（全文见 `LICENSES/CC-BY-NC-SA-4.0.txt`）。
+  署名：改编自 abpy 的 `classic neg_sRGB.cube`，
+  [abpy/FujifilmCameraProfiles](https://github.com/abpy/FujifilmCameraProfiles)，CC BY-NC-SA 4.0。修改内容：将该 LUT
+  拟合为 GR III 的外观矩阵、色调曲线和曲线后矩阵；本仓库不包含 LUT 本身。按"原样"提供，不附带任何担保（见许可第 5 节）。
+  仅限非商业用途，改编作品须以相同许可共享。用这些拟合数据生成的固件镜像同样适用：不得出售或用于商业分发。
 * `third_party/gr-custom-tool`：GPL-2.0（见其自带的 `LICENSE`）。
 
 仅限离线使用。输入文件：`../fwdc239b.bin`（SHA-256 `d6a3c9c2…54bfd4`）。所有地址仅对该文件有效。
