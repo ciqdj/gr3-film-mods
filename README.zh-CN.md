@@ -59,8 +59,11 @@ Kodak Vision3 250D）以及 RAW 降噪修改，全部通过离线修补官方升
 
 许可（按部分）：
 * 代码和笔记：MIT（`LICENSE`）。
-* 源自 spektrafilm LUT 的拟合数据（`work/**/fits`，下列除外）：CC BY-SA 4.0 + spektrafilm LUT 许可条款；
-  请注明 spektrafilm 并以相同方式共享。
+* 源自 spektrafilm LUT 的拟合数据：`work/**/fits/` 中除 `classicneg_*` 以外的全部文件，以及 `work/films/*.json`、
+  `work/portra400/portra_fit.json`、`work/films_v8/cca1_mats.json`、`work/films_v9/cca1_mats.json`。源自
+  Andrea Volpato 的 [spektrafilm](https://github.com/andreavolpato/spektrafilm)，采用 CC BY-SA 4.0 许可（spektrafilm
+  许可及 CC BY-SA 4.0 全文见 `LICENSES/SPEKTRAFILM_LICENSE.txt`）。由 idontknownihil 修改：将这些 LUT 拟合为
+  GR III 相机参数（见 `LICENSES/CHANGELOG.txt`）；本仓库不包含 LUT 本身。改编作品须保持 CC BY-SA 4.0 并保留此署名。
 * 源自 FujifilmCameraProfiles LUT 的拟合数据（`work/**/fits/classicneg_*`，即 `spec` 指向该仓库的所有拟合）：
   [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)（全文见 `LICENSES/CC-BY-NC-SA-4.0.txt`）。
   署名：改编自 abpy 的 `classic neg_sRGB.cube`，

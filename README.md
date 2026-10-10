@@ -60,8 +60,12 @@ Classic Neg, which is fitted to the `classic neg_sRGB.cube` LUT of
 
 License (by part):
 * Code and notes: MIT (`LICENSE`).
-* Fit data derived from spektrafilm LUTs (`work/**/fits`, except below): CC BY-SA 4.0 + spektrafilm LUT license
-  terms; credit spektrafilm, share alike.
+* Fit data derived from spektrafilm LUTs: everything in `work/**/fits/` except `classicneg_*`, plus `work/films/*.json`,
+  `work/portra400/portra_fit.json` and `work/films_v8/cca1_mats.json`, `work/films_v9/cca1_mats.json`. Derived from
+  [spektrafilm](https://github.com/andreavolpato/spektrafilm) by Andrea Volpato, licensed CC BY-SA 4.0 (spektrafilm
+  license with the full CC BY-SA 4.0 text: `LICENSES/SPEKTRAFILM_LICENSE.txt`). Modified by idontknownihil: the LUTs
+  were fitted to GR III camera parameters (see `LICENSES/CHANGELOG.txt`); the LUTs themselves are not included.
+  Adaptations must stay CC BY-SA 4.0 and keep this credit.
 * Fit data derived from FujifilmCameraProfiles LUTs (`work/**/fits/classicneg_*`, i.e. every fit whose `spec` points to
   that repo): [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) (text in
   `LICENSES/CC-BY-NC-SA-4.0.txt`). Attribution: adapted from `classic neg_sRGB.cube` by abpy,
