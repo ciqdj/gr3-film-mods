@@ -1,10 +1,49 @@
 # Ricoh GR III fw 2.10 — image pipeline & film-filter findings
 
-Investigated 2026-10-07. Static analysis + Unicorn emulation of the RTOS; **nothing has been flashed or tested on a camera.**
+Research notes, in the order the work was done (2026-10-07 .. 2026-10-12): static analysis and Unicorn emulation of
+the RTOS, plus camera tests where a section says so. Section headers carry each build's status; later sections
+correct earlier ones where noted.
+
+## Status (2026-10-12)
+
+**Latest build: films v33b** (§53) = v33 (§52) with Sony FL refitted from a black-box model of the a7C II's own FL
+rendering. Neither v33 nor v33b is camera-tested yet.
+
+| Build | What changed | § | Camera |
+| --- | --- | --- | --- |
+| v16 | hue sectors (MultiAxial) for every film, RAW development with films | 33-34 | hue chart tested (§33b) |
+| v17 | aspect 5:4 / XPan (first try) | 35 | never flashed, set aside |
+| v18 | Classic Chrome in the Vivid slot, RAW-dev sliders for appended films | 36 | - |
+| v19 | RAW NR on/off from the High-ISO NR menu | 37 | superseded by v20 |
+| v20 | High-ISO NR menu picks RAW NR threshold + JPEG NR | 38 | tested (§38a): RAW NR works, JPEG remap lost at power-on |
+| v21 | RAW NR only from ISO 5000, JPEG NR stock | 39 | - |
+| v22-v22g | Sony FL (Adobe A7 IV / A7C II profile) replaces Gold 200; box icons | 40 | FL chart comparison (§40b) |
+| v23 | RTOS grown by 64 KB (extension), Gold 200 back | 42a | boots, extension code runs (§42b) |
+| v24 / v25 | every film appended, data in the extension; five more films | 42b-c | - |
+| v26 | separate sliders per film, safe return to stock (FILMDATA.bin) | 44a | - |
+| v27 / v28 | Grain for films, playback info, RAW-dev values per film | 45-46 | grain recorded but not applied (§47) |
+| v29 | effect-stage gate opened for films | 47 | grain visible (§48) |
+| v30 | Grain item in RAW development | 48 | - |
+| v31 | 4:3 / 16:9 | 50 | never flashed |
+| v32 | aspect 3:2 / 4:3 / 5:4 / 65:24 | 51 | wrong live-view ratio + flicker (§52): **do not flash** |
+| v33 | open-gate live view with dimmed crop frame (GR4-XPanUnlock style) | 52 | not yet |
+| v33b | v33 + Sony FL from the a7C II black-box model | 53 | not yet |
+
+Before flashing stock or an older build: Image Control on a stock mode (shooting, C1/C2/U-modes and movie), Aspect
+Ratio 3:2. Stock firmware with a saved film tone reads past its record table (§44). There is one firmware bank, so a
+build that does not boot has no automatic fallback (§42).
+
+Open: AF debug probe not run (§49); live-view framing of v33 and the playback / RAW-dev screens of v27-v30 only
+emulated; FILMDATA.bin on the real file system (§44a); Sony FL v33b vs the a7C II on real scenes (§53).
+
+**Not in this repository:** firmware images, photos and calibration files; data derived from Adobe DNG profiles (the
+v22-v33 Sony FL fits), from Leica (Leica Eternal), maker logos and box art (§40d-f), and GR IV firmware tables. The
+builders and scripts after v16 are not published yet; the sections describe what they do. The a7C II work behind §53
+is in `sony/` (`A7C2_FINDINGS.md`, `sonysim.py`).
 
 ## 1. Input and tooling
 
-- Firmware: `~/dev/gr3-firmware/fwdc239b.bin`, GR III, version 2.10.21.27, SHA-256 `d6a3c9c288d784080e7b283222ecdd8752adfeed6faa36dab44f73115354bfd4`. All addresses below apply to this file only.
+- Firmware: `fwdc239b.bin` (official update file), GR III, version 2.10.21.27, SHA-256 `d6a3c9c288d784080e7b283222ecdd8752adfeed6faa36dab44f73115354bfd4`. All addresses below apply to this file only.
 - Container format = same family as GR IV; `gr-custom-tool/gr4_editor/codec` decodes it (2430 frames, decoded 0x38F3AF4 bytes).
   - Project id 0x24C (GR IV is 0x27C), 14 sections incl. extra `FDRVPARA`, no metadata records → the GR IV editor refuses it (hard-coded to GR IV 1.11.10.7 SHA). Its public release also deliberately excludes the filter feature.
 - Decoded sections: BOOTPARA, DRAMPARA, PARTPARA, M0, BOOT, RTOS @0x10860 (payload +16), LINUX, INITFS, SRIC, CPU, SHELLCMD, ICONBIN, FDRVPARA, RES (DF_EX.bin / DF_IP.bin / DF_ID_S.bin = DSP code for digital filters, not tables).
@@ -98,7 +137,7 @@ Investigated 2026-10-07. Static analysis + Unicorn emulation of the RTOS; **noth
 
 - SHELLCMD section: ~585 engineering commands incl. CAP_REG_B2Y, CAP_REG_IIP, CAP_DumpImageMap, CAP_Lut, SYS_md/SYS_mm, SYS_script, lcmd (Linux shell bridge). Access path on GR III unverified.
 - C:\SYSPARAM.TXT (DebugInfoOfferer 0x536555E0) = sensor/engineering debug flags only (DUMP_STILL_REGISTER, DUMP_B2B_REGISTER…), nothing color.
-- Engineering/TTL interfaces documented for GR IV in `~/dev/ricoh-gr4-firmware-analysis-and-feature-expansion`.
+- Engineering/TTL interfaces documented for GR IV in the ricoh-gr4-firmware-analysis-and-feature-expansion project.
 
 ## 11. How to build a LUT-style film filter
 
@@ -110,6 +149,9 @@ No 3D LUT → decompose a target LUT into:
 
 ## 12. Open items / next steps
 
+(The 2026-10-07 list. Done later: 1 §14a, 2 §30a-b, 3 §22h / §33b, 4 §13, 6 §33. Current open items: Status at the top.)
+
+
 1. Flash test: does the camera accept/boot a patched file? (Keep stock fwdc239b.bin to reflash.)
 2. MultiAxial geometry: flash a variant with marker boundaries/matrices, shoot a color chart.
 3. RAW+JPG validation: same scene per mode (tripod, M mode, Daylight WB, ISO 200, all params 0, DR/Clarity/Shading off; plus Standard Contrast+2 and Saturation+2). Develop DNG through the extracted model and compare to camera JPG.
@@ -119,7 +161,7 @@ No 3D LUT → decompose a target LUT into:
 
 ## 13. Portra 400 via spektrafilm (built offline, 2026-10-07)
 
-Source: `~/dev/spektrafilm` (v0.3.4). `spektrafilm-lut build --film kodak_portra_400 --print kodak_portra_endura --input vlog --output srgb --resolution 33` (+ a `fujifilm_crystal_archive_typeii` print variant). LUTs are CC BY-SA 4.0 + spektrafilm LUT license → credit spektrafilm, share alike, no resale.
+Source: spektrafilm (v0.3.4). `spektrafilm-lut build --film kodak_portra_400 --print kodak_portra_endura --input vlog --output srgb --resolution 33` (+ a `fujifilm_crystal_archive_typeii` print variant). LUTs are CC BY-SA 4.0 + spektrafilm LUT license → credit spektrafilm, share alike, no resale.
 
 **Cross Process composite (0x536E8668, confirmed):** when ctx+0x9B≠0 each channel's 256-entry gamma becomes `out_c[i] = Curve_c(Base[i])` (index Base>>6, 6-bit lerp, entries ≥255 use the last value); Y table = (77R+150G+29B)>>8 of the composites. Base = Standard 256-entry 14-bit gamma (dumped: `work/base_gamma_std.npy`, identical for Std/Cross at neutral params).
 
@@ -414,7 +456,7 @@ rebuilds bit-identical. Output `work/films_v7/fwdc239b.bin` (SHA-256 a7d60c88…
 
 ## 22. Factory / engineering menu entry (static, 2026-10-08, not yet tried on camera)
 
-Same mechanism as the camera-verified GR IV and GR IIIx 1.60 (`~/dev/ricoh-gr4-firmware-analysis-and-feature-expansion`):
+Same mechanism as the camera-verified GR IV and GR IIIx 1.60 (ricoh-gr4-firmware-analysis-and-feature-expansion project):
 - Entry file name: 0x536bdc44 / 0x536be854 sprintf `C:\%08ld.%03ld` (0x53d615d8) with 0x5381fe9c = 0x1320E (78350) and
   0x5381fe4c = 0x24C (588) -> **`C:\00078350.588`** (GR IIIx 1.60: 00078490.609, GR IV: 00078560.636).
 - Key file: name XOR 0x29 at 0x538f2d84 -> `C:\DEVELOP.MOD`; must be 10 bytes (0x536bf744) equal to key 1
@@ -990,7 +1032,7 @@ shot. Per-region JPG mean / high-pass noise SD (wall, paper, screen):
 likely the four 1024s). control[0] and the thresholds are not required. Zone geometry still unmapped (needs the hue chart).
 
 ### 30b. Probe round 5 hue chart (photo-ma6 R0011959 Negative = MA off, R0011960 Positive = markers), 2026-10-10
-`work/ma_probe5/zones.py ~/dev/GR4-LUTSmith` (log `zones.log`): per patch gain Positive/Negative in the linear index
+`work/ma_probe5/zones.py <GR4-LUTSmith>` (log `zones.log`): per patch gain Positive/Negative in the linear index
 domain, compared with GR4-LUTSmith's GR IV sector model (12 sectors by Cb/Cr angle of the post-look-matrix signal,
 edges 359.8, 27.4, 62.2, 92.6, 112.0, 142.8, 179.2, 211.4, 238.6, 267.2, 306.0, 326.5 deg; sector g -> matrices 5g..5g+4).
 Measured gains are compressed per chart row (obs = 0.04..0.20 + 0.73..0.92 x marker, larger offset on the darker rows:
@@ -1000,7 +1042,7 @@ close markers (0.75/0.85). => GR III MultiAxial = GR IV hue sectors, same geomet
 HueFitter model applies to the GR III as is. Space: one 60-matrix table (2160 B) per look.
 
 ## 31. v16 planning: what hue sectors add to v15 (2026-10-10, offline)
-`work/v16_plan/hue15.py ~/dev/GR4-LUTSmith` (log `hue15.log`, sectors in `hue_sectors.json`; plan in `work/v16_plan/PLAN.md`).
+`work/v16_plan/hue15.py <GR4-LUTSmith>` (log `hue15.log`, sectors in `hue_sectors.json`; plan in `work/v16_plan/PLAN.md`).
 Sectors-only fit (v15 matrix/curves/post fixed), mean dE2000 general: Portra 2.14->1.96, Ektar 2.32->2.14, Gold
 2.10->1.99, 400H 2.06->1.94, Vision3 250D 2.13->1.99, Classic Neg 1.51->1.23, Vision3 500T 2.27->2.03.
 GR IV MultiAxial sets (tones 11/17/18/19, `work/ma_probe5/gr4_ma_sets.json`) all use the probe-5 geometry/control; their
@@ -1059,7 +1101,7 @@ film). Reference = the same look on the true scene adapted to D65 (CAT02). Mean 
   depends on it), movie recording path.
 
 ### 33a. v15 vs v16 on earlier real RAW files (offline, 2026-10-10)
-`work/films_v16/check_prev.py ~/dev/GR4-LUTSmith` (log `check_prev.log`, sheets `preview_*.jpg`: v15 | v16 | target).
+`work/films_v16/check_prev.py <GR4-LUTSmith>` (log `check_prev.log`, sheets `preview_*.jpg`: v15 | v16 | target).
 DNG -> rawpy linear (camera WB) -> EK (photo-v10 Standard chart) -> exposure from the Standard model fitted to the
 camera's own JPG -> each film model (v15 / v16 incl. sectors) vs its target, all usable pixels at 480x320.
 Whole photo-v10 chart frame and the three photo-v13 scenes, 7 cube films: mean dE2000 v15 0.94 -> v16 0.84, v16 better
@@ -1069,7 +1111,7 @@ This scores the model against the target; the camera itself is only checked by t
 vs model 0.55-0.80; §30b: MultiAxial geometry/gains on the probe-5 chart) until photo-v16 exists.
 
 ### 33b. v16 on camera: hue chart (photo-v16 R0011993-12005, 2026-10-10)
-`work/films_v16/check_v16.py ~/dev/GR4-LUTSmith` (log `check_v16.log`; method as check_v13: DNG -> rawpy linear -> EK ->
+`work/films_v16/check_v16.py <GR4-LUTSmith>` (log `check_v16.log`; method as check_v13: DNG -> rawpy linear -> EK ->
 exposure + radial shading fitted per look, all flat unclipped pixels at 375x250). Shots in list order: Standard, Vivid,
 Negative, Positive, Cinema Y, Cinema G, Vision3 500T, Portra, Ektar, Gold, Pro 400H, Vision3 250D, Classic Neg.
 - Every film shot is recognised (best of 19 looks = the selected film, runner-up 0.25-2.7 worse).
@@ -1109,7 +1151,7 @@ rows go through 0x53283C80 -> index->tone 0x532C2C80 (mode 2, patched since v13)
 Fix: 0x53283C08 -> `mov r0,#18` (12 + appended films). Neighbour 0x53283CD0 (also 12) is the white-balance list.
 Rebuilt `work/films_v16/fwdc239b.bin` SHA-256 9ad5ef4d7149a9a5d9d1c03b6d7d0e9f680ff040f4bf3f754efc3c4edfc8ffb2, ALL OK (100).
 
-### 34b. Camera report on 9ad5ef4d: RAW-dev list still shows only the replacements; film RAWs open as Standard (2026-10-10, open)
+### 34b. Camera report on 9ad5ef4d: RAW-dev list still shows only the replacements; film RAWs open as Standard (2026-10-10, solved in §34c / §34d)
 User: in RAW development only Cinema Y/G and 500T appear among the films, and RAWs shot in the six appended films "jump
 back to Standard". As-shot cause found (static): playback reads the image tone from the file's maker-note ImageTone via
 0x535BF7B0 (code - 257 <= 10 -> table 0x53D2D920 -> tones 12..22, anything else -> 11 Standard), and every film shot
@@ -1143,3 +1185,736 @@ Patch: enum table relocated with 13..12+m appended, slot table with m more zeros
 capacity 15+m. Emulated: 21 / 20 options = as shot, the 12 stock entries (incl. C-Y/C-G/500T), the six films
 (enum -> tone 25..30), set1, set2; capacity 21.
 `work/films_v16/fwdc239b.bin` SHA-256 9d81366c26281b726ef733d681bbbf2df3febbc438a1967ce254ae997faf6d71, ALL OK (103).
+
+## 35. Aspect ratios 5:4 and XPan (v17, built 2026-10-10, set aside by the user)
+make_aspect.py / make_v17.py / verify_aspect.py (ALL OK, 23 emulated checks) turn the hidden GR IV aspect ids 1 (4:3)
+and 2 (16:9), still present in GR III fw 2.10, into 5:4 (4992x4000) and XPan (6000x2216): menu, capture sizes,
+nails, playback ratio/size checks, crop frames, AF area, DigitalFilter, RAW-dev aspect. Live-view framing not done.
+work/films_v17/fwdc239b.bin (c7fdb2e7...) never flashed. The user asked to continue from v16 instead (§36).
+
+## 36. Films v18: Classic Chrome in the Vivid slot; RAW-dev sliders for the appended films (built 2026-10-10, not yet camera-tested)
+User (v16): in RAW development the appended films' sliders cannot be adjusted ("does not use the sub-settings from
+Standard"). Cause: RawDevelopmentModel's 13-entry parameter cache per develop slot (enum 0 = as shot, 1..12) is
+paired with a 13 x 17 "adjustable" flag table 0x53B5A750 whose entry 0 is all zeros; the 81 enum searches of the
+model (`mov r3,#1; L: cmp rE,r3; ...; cmp r3,#0xd; bne L; mov rX,#0`, in 0x53283D48..0x53289A38) send an enum outside
+1..12 (the appended films' 13..18, §34) to entry 0, so every setter returns before storing (e.g. 0x53286F40
+`ldrb [0x53B5A750 + 17*entry]; popeq`). Fix (make_slots18.patch_rawdev_sliders): the 81 not-found results -> 1, i.e.
+appended films use Standard's flags and Standard's RAW-dev values (as when shooting). Replacing films keep their
+replaced mode's enum. Emulated: accessors for enums 0..12 unchanged, enum 13+ = Standard's entry; the setter with
+enum 13 is ignored in stock and stores into entry 1 in v18.
+Classic Chrome: `classic chrome_sRGB.cube` (abpy/FujifilmCameraProfiles, CC BY-NC-SA 4.0) fitted as Classic Neg (§22n:
+-0.88 EV, boost 4 / neutral 3, joint_fit, lab_fit, hue sectors; work/films_v18/fit_cc.sh). Score general / warm /
+ColorChecker / camera chart: cube_fit chart 1.52 (Standard vs target 5.57) -> 1.57 / 1.26 / 1.38 / 1.31 with sectors.
+It replaces Vivid (tone 12, key `classicchrome@12`) in the still, RAW-dev and movie lists, using Vivid's slider storage
+and RAW-dev enum 2; tone 34, legacy record slot 10 (stock mono look, its record/matrix referenced only by the record
+table and the static record list 0x55037634), icon 0x2A3 'CC', maker-note ImageTone 277.
+Builder changes, all byte-neutral for v16 (rebuild still 9d81366c): knot tables may spill out of curve region 0 (the
+expander gets one more range; Classic Chrome's knots sit in region 1); "is active mode" scans accept every immediate
+encoding (`cmp r3,#12<<16` assembles as 3 ror 14, so Vivid's set-No0 and movie checks were missed); MultiAxial data
+falls back to the curve area (MA sets 280 B no longer fit the freed table). Free space left: 80 B (+2 x 4 B).
+`work/films_v18/fwdc239b.bin` SHA-256 5066f34c5b70a351cf146525b6af31bafa2de589df118f783cc89a73a61750f2,
+verify_slots18 ALL OK (114).
+
+## 37. Films v19: RAW NR on/off from the High-ISO NR menu item (built 2026-10-10, never flashed; superseded by v20)
+User: "add the option in the setting to set the noise canceling on or off". No free menu item is needed: the stock
+High-ISO NR setting is reused. Still settings object = 0x5320b31c() (static 0x55063f30, guard 0x55063ed0), values
+block [obj+4]; getters 0x53245294.. read bytes +0x4d0, +0x4d2, ... Labels from the settings-to-text code 0x53366dc0 /
+0x53366e28 (name chain 0x53388a8c, names "StillLongTvNR" 0x53b27e08, "StillHighIsoNR" 0x53b27e18):
++0x4d4 Slow Shutter NR (0 Auto, 1 On, 2 Off), **+0x4d6 High-ISO NR (0 Auto, 1 Low, 2 Mid, 3 High, 4 Custom, 5 Off)**.
+The PPU NR decisions all ask the debug-flag getter 0x53654220: FE setup 0x53433254 (flag 0x77 -> NR unit out+0x64),
+0x53433274 (0x7c -> NR param mode out+0x69), alternate capture path 0x53642AE4 (0x77 -> clears mask bit 3).
+Patch (make_slots19.patch_raw_nr_menu): those three `bl` go to a 9-word stub (0x53efc8d8) that returns 1 when
+High-ISO NR = Off and tail-calls the real getter otherwise. v19 builds without `--raw-nr-above`, so:
+High-ISO NR Off = no RAW NR at any ISO (and no JPEG NR, as stock Off); Auto/Low/Mid/High/Custom = stock RAW NR
+(Ricoh's table, NR from ISO ~140). Adding `--raw-nr-above 8000` keeps v18's table for the "on" state instead.
+Emulated (verify_slots19, ALL OK 117): FE setup (unit, params) stock (1,1) for every value, v19 (1,1) for values 0..4
+and (0,0) for Off, debug flags 0x77/0x7c still honoured; alternate path mask 0x19 -> 0x11 only for Off.
+Unknown until camera test: whether the FE setup reads the setting per shot (expected) or only when entering capture
+mode. Free space left: 44 B (+2 x 4 B). `work/films_v19/fwdc239b.bin` SHA-256
+9fd3426122b91328b96bb22b24bb61b1e854937007b7c84a346654c2a54149ac.
+
+## 38. Films v20: High-ISO NR menu picks the RAW NR threshold and JPEG NR (built 2026-10-10, camera-tested §38a; replaced by v21)
+User: "set High to RAW NR on at 3200 and JPG NR off, Mid to RAW NR on at 8000 and JPG NR off". Built on v18 (not v19).
+| High-ISO NR | RAW (PPU) NR | JPEG NR |  Auto / Low / Custom: stock / stock;  Mid: from ISO 8000 / off;
+High: from ISO 3200 / off;  Off: none / off.
+- RAW: the still PPU NR parameters 0x53642b24 (only caller: still PPU start 0x53642e78 @0x53642f44; live view calls
+  NRUnit from 0x5343f2ec with its own modes) pass NRUnit mode 0 if cfg+0x19 else 3, ISO index cfg+0x2c. Its
+  `ldrb ip,[r1,#0x19]` (0x53642B4C) -> bl stub (0x53efc8d8, 12 words + 8-byte table) that returns 0 when the ISO index
+  is below the first index for the menu value: [0,0,81,71,0,255] (from_index = midway down to the previous 1/3 stop:
+  3200 -> 71, 8000 -> 81). Same effect as DISABLE_PPU_NR_PARAM per shot; the NR unit stays enabled (as v6/v7).
+- JPEG: High-ISO NR setter 0x53252aa0 stores [obj+4]+0x4d6 and, if 0x53252a44 allows, sends camera property 0xdd
+  (0x5354cab8 -> 0x5354b564, the only sender of 0xdd; 0x5354e7ec reads it back) to the capture side. The UI value is
+  read elsewhere only by menu/text code (0x53197b5c, 0x531b84c8, 0x531c4c6c, 0x53366e3c), a same-offset settings
+  copy 0x5326cc44 and a serializer 0x5373e360, so the property is taken to be what the image pipeline uses.
+  0x53252ACC `mov r1,r4` -> bl stub (0x53efc910, 5 words): Mid (2) / High (3) are sent as Off (5). Setter callers:
+  menu 0x531b6d80, 0x5328b250, settings import by name 0x53307a08.. (all go through the hook).
+  Maker note (Pentax tag 0x71 HighISONoiseReduction) is built from the capture side, so it should read Off for Mid/High.
+  Inference, not traced to R2Y: confirm on camera that Mid/High JPEGs match Off JPEGs.
+- Emulated (verify_slots20 ALL OK 117): NRUnit (ISO, mode) for 6 values x 10 ISOs x cfg+0x19 on/off: stock always
+  mode 0 iff cfg+0x19; v20 Mid on at 8000+, High at 3200+, Off never, others = stock, cfg+0x19 = 0 still off.
+  Setter: stored value unchanged, sent [0,1,5,5,4,5] (stock [0..5]).
+- After flashing, the capture side keeps its last value until the setting is changed: re-select High-ISO NR once.
+- Free space now 0 (3 x 4 B). Any further code needs new space.
+`work/films_v20/fwdc239b.bin` SHA-256 0b32daef198db05da69d21de460d5b988a8c963601f2ab1195927acdfa30b4a4.
+
+### 38a. Camera test 1 (photo-v20, 2026-10-10): v20 works at ISO 8000
+Two RAW+JPG at ISO 8000, 1/80 f/8, same scene, one High-ISO NR = High, one = Off (user did not say which; inferred
+from the data: R0012065 = High, R0012064 = Off). raw_noise.py var/mean (Off -> High): R 63.9 -> 23.4, G 59.8 -> 43.2,
+B 60.0 -> 23.4 (-63 % chroma, -28 % green: the stock RAW NR, same R/B > G pattern as §21b) => High turns RAW NR on at
+8000. Maker note HighISONoiseReduction = "Off; Inactive" in both (stock High would record High): the capture side got
+Off from the remapped property 0xdd. JPEG 100 % crop (work/films_v20/compare_iso8000_crop.png): High has less colour
+blotching, luma grain still fine and unsmeared (no JPEG NR look); JPEG high-pass noise 4.1 -> 3.1 (20th pct), in line
+with the RAW change alone. Not yet tested: High at ISO 2500 (should be off), Mid at 6400/8000, Auto (stock).
+Resolution (same pair): image size unchanged (JPEG 6000x4000, DNG 6112x4064, crop 6000x4000). High-contrast edges
+equally sharp: JPEG 10-90 % edge width, tape top edge 1.96 px (Off) vs 1.84 (High), window sill 5.93 vs 5.72 (within
+measurement noise). Fine low-contrast texture (chair weave, basket mesh) is a little softer with High, as expected
+from the RAW NR (work/films_v20/detail_{chair,basket,knot}.png); the two frames are shifted a few px, so this was
+judged visually, not measured.
+Test 2 (R0012074/75, ISO 8000 f/16, 1/5 vs 1/4 = +1/3 EV for 75, tripod, chair fabric filling the frame). 75 = High
+(R/B var/mean 93 -> 46, 102 -> 73; texture-dominated, so raw_noise's flat-block numbers are rough here).
+`nr_mtf.py` (new): per frequency band, signal = |sum over 64 px tiles of F(G1) conj F(G2)| (same scene, independent
+noise), noise = rest of the green power; exposure-normalised to the first file. Signal High/Off by band (cycles per
+green-plane px) 0.03-0.08 / 0.08-0.15 / 0.15-0.25 / 0.25-0.35 / 0.35-0.5:
+  fabric pair 0.99 / 0.99 / 0.97 / 0.93 / 0.73, noise 0.90 / 0.90 / 0.88 / 0.81 / 0.76 (0.87 of that is the +1/3 EV);
+  first pair (064/65, whole frame, equal exposure) 0.96 / 0.99 / 0.99 / 1.05 / 0.88, noise 0.85 / 0.74 / 0.73 / 0.73 / 0.73.
+=> the PPU NR is texture-adaptive: in flat areas green noise -27 % (power), in dense texture only ~-10 %, and the
+scene detail is kept up to ~0.35 cyc/px; only the finest band (near Nyquist, signal < 5 % of the noise there) loses
+~12-27 % power (~6-15 % amplitude). JPEG crop (work/films_v20/detail_fabric_iso8000.png): weave equally resolved,
+High has less colour speckle.
+Test 3 (R0012076..85, fabric, f/16, tripod, High/Off pairs at ISO 3200/5000/8000/12800/16000, same exposure per pair;
+High identified by R/B var/mean: 84, 83, 80, 76, 79). RAW NR on with High at all five ISOs incl. 3200 (R 52.7 -> 29.5).
+Finest band (0.35-0.5 cyc/green px, nr_mtf box 600:3400,1000:5000) signal High/Off: 3200 0.80, 5000 0.82, 8000 0.59,
+12800 0.71, 16000 0.50 (power; amplitude 0.89/0.91/0.77/0.84/0.71); noise 1.02/0.78/0.92/0.88/0.69. Signal there is
+only ~4-11 % of the noise power, so these ratios are rough (and long exposures 1/8..0.6 s may add shake differences).
+**JPEG remap failure:** R0012076 (High, ISO 12800, first shot of the session) has maker note "Strong; Active (Strong)"
+and JPEG fine-detail std 0.32x of the Off shot (other pairs 0.88-0.91x = RAW NR alone): the capture side got the
+unremapped High (3). Later High shots (79, 80, 83, 84) record Off. Likely a power-on / mode-entry sync of property 0xdd
+that does not go through setter 0x53252aa0 (or the gate 0x53252a44 path). To find: other writers of the capture-side
+value at startup.
+Test 4 (R0012086/87, ISO 3200 1/4 f/16, Program, High-ISO NR = Mid, consecutive shutter counts 12125/12126; one shot
+after selecting Mid, one after a power cycle - order per data below). RAW: identical (R/G/B var/mean 20.5/19.0/19.1 in
+both) = Mid keeps RAW NR off at 3200, as intended. JPEG: 86 maker note "Medium; Active (Medium)", JPEG fine std 1.96
+vs 2.86 for 87 ("Off; Inactive"). With test 3 (first shot of the session = Strong), 86 is the post-restart shot:
+**after power-on the capture side gets the raw menu value, not the remapped one; selecting the value again fixes it.**
+The power-on sync of property 0xdd bypasses the setter hook at 0x53252ACC.
+Test 5 (R0012088/89/90, ISO 8000 1/10, High; 88 after selecting High, 89 after a power cycle, 90 after Off -> High).
+RAW identical in all three (R/G/B var/mean 16.0/35.2/17.3: RAW NR on, chroma-heavy as usual) -> the RAW switch reads
+the menu directly and survives restarts. JPEG: 88 "Off; Inactive" fine std 3.32, **89 "Strong; Active" 1.14**, 90 "Off"
+3.33. Confirms: at power-on property 0xdd is synced with the raw menu value outside setter 0x53252aa0; re-selecting
+the value fixes it until the next power cycle.
+
+## 39. Films v21: RAW NR only from ISO 5000, JPEG NR = stock menu (built 2026-10-10, not yet camera-tested)
+User, after the v20 tests (JPEG remap lost at power-on, §38a): drop the menu link; RAW NR on only at ISO >= 5000, leave
+the JPEG NR setting stock. Built as v18 with `--raw-nr-above 4000` (same mechanism as v6/v7/v18, §21b/c: clear the
+enable byte of the mode-0 NR B entries, both variants, index 36..75; first NR index 76 = ISO ~4500, so ISO 4000
+(idx 75) off, 5000 (77) on). No code change, no menu hook, nothing lost at restart. Checked: only those 80 enable bytes
+differ from stock, strengths and indices >= 76 identical; verify_slots18 ALL OK (114). v19/v20 menu hooks not included.
+High-ISO NR menu = stock JPEG NR at every value (and does not affect RAW NR).
+`work/films_v21/fwdc239b.bin` SHA-256 fba6a50c96d60eeebf55a4dcd261ab1c03886ef3b62ef872df7e95187e117708.
+
+## 40. Films v22: Sony FL replaces Gold 200 (built 2026-10-10, not yet camera-tested)
+User: replace Gold 200 with Sony's FL ("Film") Creative Look, as the Sony-A7V-Picture-Profile-Creator project uses it. That
+repo only copies Adobe's Camera Matching DCPs, so the target is `Sony DSC-RX1RM3 Camera FL.dcp` (Adobe DNG Converter
+18.7 payload, extracted without installing; work/films_v22/dcp). Gold chosen over HDR Tone: it frees its own knots and
+sector block (HDR Tone frees no space, free space was 0), and Gold/Portra were already hard to tell apart (§24, photo-v13).
+- DCP (new `dcp.py`): ForwardMatrix = ProPhoto->XYZ D50, no HueSatMap, LookTable 90x16x16 (value axis sRGB-encoded),
+  256-point ProfileToneCurve, BaselineExposureOffset -0.35. With that ForwardMatrix the white-balanced CAMERA RGB is
+  treated as ProPhoto, so the LookTable acts on sensor RGB: the bake maps sRGB D65 -> RX1R III RGB via ColorMatrix2
+  (neutral -> 1,1,1), applies LookTable + RefBaselineRGBTone, reads the result as ProPhoto D50 -> sRGB (Bradford).
+  (A first bake fed ProPhoto directly: Camera ST then turned skies purple, hue 253; with camera RGB ST sky = 215.)
+- Exposure: -0.92 EV, where the same set's Camera ST puts 18% grey at GR Standard's 0.461 (as Classic Neg §22n).
+  FL is then brighter than ST: grey 0.591 vs 0.461 at 0 EV, 0.821 vs 0.668 at +1, shadows -4 EV 0.007.
+  FL vs ST (RX1R III): sky hue 215 -> 196 (cyan), foliage 91 -> 146 (teal), reds/wood/skin hue kept, more chroma.
+- Fit (`work/films_v22/fit_fl.sh`, b4 n3 as Classic Chrome): Standard vs target 13.50 -> cube_fit chart 3.39 -> with
+  sectors (refit22.py) general / warm / ColorChecker / camera chart 1.50 / 1.85 / 1.43 / 1.77 (other films 1.1-2.1).
+  On real RAWs (preview.py, photo-v10 chart + photo-v13 scenes): model vs target 1.06 / 0.77 / 0.71 / 0.73 mean.
+- Build: v21 command with `sonyfl=work/films_v22/fits/sonyfl.json` in gold's position (tone 27, legacy record slot,
+  icon id, maker-note ImageTone code and slider storage all Gold's; name "Sony FL", icon 'FL'). make_slots22.py /
+  verify_slots22.py = the v18 scripts + fl22.py registration. verify ALL OK (114). Free space unchanged from v21.
+- Licence: the DCP, the cube and the fit are derived from Adobe profile data: personal use, keep out of the public repo.
+`work/films_v22/fwdc239b.bin` SHA-256 045454f486bd9cac54273091eb7b2c1481d5f878e52367c005acc7a4b624d5aa.
+
+### 40a. FL from other Sony bodies; v22b = A7 IV / A7C II FL (built 2026-10-10, not yet camera-tested)
+Same bake (dcp.py, exposure from each body's own Camera ST) for five FL profiles. A7 IV and A7C II FL are byte-identical
+(LookTable + tone curve); RX1R III, A7R V and A1 II each have their own. Mean / p95 dE2000 between the renders (4000
+random colours + grey ramp): RX1R III vs A7 IV 4.36 / 8.78, vs A7R V 2.20 / 3.88, A7 IV vs A7R V 3.33 / 7.72, A1 II vs
+any 6.4-9.0 / 18-25 (A1 II and RX1R III push foliage/sky to full chroma; A1 II needs -1.12 EV vs about -0.9 for the rest).
+Greys agree (0 EV 0.589-0.591) except the deep shadows: RX1R III / A1 II -4 EV 0.007, A7 IV / A7R V 0.033 (milder toe).
+A7 IV vs RX1R III: foliage hue 114 vs 146 at chroma 0.40 vs 1.00, sky 203 vs 197, skin/red the same. Because each
+LookTable is built for its own sensor and the bake reaches sensor RGB through a 3x3 ColorMatrix, some of the spread is
+the bake, not Sony; only real FL JPEGs can say which is closer.
+A7 IV fit (fit_fl4.sh, -0.90 EV) fits the GR pipeline better: general / warm / ColorChecker / camera chart
+1.48 / 0.87 / 1.17 / 1.44 (RX1R III 1.50 / 1.85 / 1.43 / 1.77); real RAWs 0.97 / 0.70 / 0.67 / 0.65 (RX1R III
+1.06 / 0.77 / 0.71 / 0.73). preview_fl_variants.jpg: on the photo-v13 scenes the two look close; A7 IV greens and cyans
+are less saturated and its shadows less crushed.
+`work/films_v22b/fwdc239b.bin` (v22 with fits/sonyfl4.json) SHA-256 59abfe843ff22b3160cc5c81c7de901684e569970b920d3c30f85b65eea056d7, verify ALL OK.
+
+### 40b. A7C II FL vs GR v22b on the same chart (photo-v22b, 2026-10-10); v22c / v22d
+Hue chart on the monitor, A7C II (FE 20-70 F4, FL default sliders: EXIF Saturation +2, DRO Auto) ARW+HIF and GR III
+v22b (ImageTone 270 = Sony FL) DNG+JPG; pair 1 Daylight WB (DSC06539 / R0012099, same light), pair 2 5500 K
+(DSC06541 / R0012100, Sony -0.35 EV less light). work/films_v22b/pairs.py (patches 7x36, chart.py; HIF via sips -> 16-bit
+TIFF, sRGB), mean dE2000 over ~218 patches:
+| | daylight | 5500 K |
+| GR v22b JPG vs Sony HIF | 7.83 | 7.45 |
+| Adobe A7 IV FL (dcp.py) on the Sony's own ARW vs HIF | 2.82 | 5.67 (5.05 with free WB) |
+| v22b model vs GR JPG (camera = model) | 2.45 | 2.39 |
+- The Adobe A7 IV profile is a fair model of the real FL (RX1R III profile on the same ARW 4.38: v22b's A7 IV choice
+  confirmed; extra chroma factor 0.98 => the +2 saturation is FL's default as Adobe profiled it). Real FL lifts deep
+  shadows and rolls off highlights more than the DCP (HIF grey 0.026/0.206 vs DCP 0.005/0.135; DRO Auto may cause part).
+- The two Daylight / 5500 K presets disagree on the monitor white (grey a* -10 / -13.5 GR vs -7 / -6 Sony): a WB
+  calibration difference, not part of the look; handled as nuisance gains below.
+- Exposure: neutral-grey link Sony scene / GR scene -> the GR-side bake should be -0.65 EV, not -0.90 (FL renders
+  ~0.25 EV brighter than our Standard-matched assumption). Joint fit below gives -0.64.
+- Rest = how the two chains see the monitor's saturated colours: GR v22b JPG chroma 30.6 / 32.2 vs HIF 27.6 / 25.4.
+  work/films_v22b/fitC.py: one white-preserving 3x3 C (GR scene -> Sony scene) shared by both pairs, per-pair WB gains
+  and exposure as nuisance: FL(C . GR scene) vs HIF 5.95 / 6.93 (C = I) -> 4.67 / 4.05.
+  C = [[0.946, 0.282, -0.229], [0.142, 0.933, -0.076], [0.068, 0.14, 0.791]]. Monitor primaries are narrow-band, so C may be partly monitor metamerism (§27: reflective
+  colours differ ~1 dE between sensors after a 3x3); needs a real-scene pair to confirm.
+- v22c (fit_fl4c.sh, -0.65 EV, sonyfl4c: general/warm/CC/chart 1.51/0.90/1.11/1.53), v22d (fit_fl4d.sh, -0.64 EV +
+  dcp.py --pre C, sonyfl4d: 1.75/0.72/1.24/1.99). Predicted GR JPG (camera JPG + new - v22b model, predict2.py) vs HIF:
+  v22b 7.83 / 7.45, v22c 6.48 / 7.69, v22d 5.88 / 5.44 (chroma 23.6 / 24.4 vs HIF 27.6 / 25.4). Residual: WB preset
+  difference, shadow lift, monitor colours.
+`work/films_v22c/fwdc239b.bin` SHA-256 5ebb565f9851a9d17c0cf08ce7a58bc26376b2c0ed4810a9b425de49c919e88d,
+`work/films_v22d/fwdc239b.bin` SHA-256 0dcda2da5cfabd72c51c347145793b2e623b4b9a6aac68c267c1ef0f101e2519, both ALL OK.
+
+### 40c. Faster emulation (2026-10-10)
+verify_slots22 took 309 s; profile: building ~62k Unicorn instances (17 MB ROM map + copy each, ~1.5 ms + teardown),
+not the emulated code. emu.py: read-only ROM pages shared between instances (mem_map_ptr, per immutable bytes image;
+guest writes fault, host writes to ROM assert), code hooks only on the stubbed addresses (was every instruction),
+no read hook unless trace_ranges is used, no zero-fill of fresh heap, and Emu.reset() (RW data, dirty bss pages,
+stack, heap) so one instance serves many calls; verify_slots18 reuses one Emu per image in path_of and per
+(image, stub) in the "is active mode" site loops. verify 309 s -> 24 s, log byte-identical, still fails on a wrong fit.
+
+Parallel (2026-10-11), 8-core Mac:
+  * verify_slots18 --jobs N (default $VERIFY_JOBS, else CPU count up to 8): the stock image decodes in the parent while a
+    forked child decodes the patched one (~3 s each, pure Python), then N forked workers split the emulated checks by
+    named section (pipeline per stage and per film, MultiAxial per stage, adjustments, site checks per owner tone; cheap
+    sections run everywhere, printed by one owner), longest first; the parent prints the lines in section order.
+    Workers that skip a stage's stock part first render a film and then tone 11: R2Y 0x818F (already allowed to differ)
+    stays set once a stock mode follows a film, and the film lines report it. 24 s -> 8.8 s; log byte-identical for
+    --jobs 1/2/3/4/8 and on a wrong fit (11 FAIL lines either way); a crashing worker -> FAIL line + exit 1.
+  * prun.py: runs shell jobs in parallel with dependencies (name < deps: command), one log per job in work/prun_logs/,
+    skips the dependents of a failed job, shares the CPUs out through VERIFY_JOBS / BLAS thread variables.
+    work/films_v22/jobs.txt = the four Sony FL fits and their builds: 196 s wall (772 s of job time; one after the other
+    ~9.5 min), all fits and the four firmware files byte-identical to the sequential runs.
+  * Still single-threaded: a fit chain (~90 s alone, ~125 s when four run at once) and make (27 s alone: the gr-custom-tool
+    frame codec decodes three times, ~3 s each, and 300 assembler subprocesses); decode frames reference earlier output,
+    so it does not split.
+
+### 40d. Films v22e: logo icons (built 2026-10-11, not yet camera-tested)
+Icons are 40x40 RGBA in the slots carved from the unused HDF / GR IIIx-cert image (§24), 6400 B each, so a logo costs no
+space: only the pixels change. `logo_icons.py`: film-strip frame of 0xE8 kept, middle band = maker wordmark (rows
+10-18, max 32 px wide) over the label (rows 19-30, DIN Condensed). Wordmarks from Wikimedia Commons PNG renders of
+public-domain SVGs (Kodak 2006-2016 wordmark, Fujifilm (black -> white, red stroke kept), Sony without "make.believe"
+(white), Ricoh 2005 for the GR IV Cinema looks), fetched into ../logos/src (`--fetch`). `make_slots22.py --logo-icons`
+(M15.ICON_RENDER hook; without it v22d rebuilds byte-identical). v22e (work/films_v22e, SHA 9529c0b4...) = v22d with
+only ICONBIN different; verify ALL OK, log = v22d's except the changed-byte count; each rendered icon found in the
+decoded ICONBIN. Trademarks: personal build only, logo files/icons/build stay out of the public repo.
+
+### 40e. Films v22f: package icons (built 2026-10-11, not yet camera-tested)
+`logo_icons.render_package` (`make_slots22.py --package-icons`): each film icon is the front of its box at 40x40
+(8x supersampled shapes, fitted text, the wordmarks of §40d; rounded corners, no film-strip frame). Layouts after Commons
+photos of the boxes: Portra (yellow, violet speed panel), Ektar 100 (black, yellow Kodak band), Superia green with its
+colour bar for Classic Neg; boxes in the maker's style for films without one (Vision3 250D/500T, Pro 400H, Classic
+Chrome, Sony FL, Ricoh Cinema Yellow/Green). v22f (work/films_v22f, SHA 90a89e5f...) = v22d with only ICONBIN changed,
+verify ALL OK (log = v22d's apart from the icon byte count), every icon found in the decoded ICONBIN. Personal build.
+
+### 40f. Films v22g: box icons from photos of the real 35 mm boxes (built 2026-10-11, not yet camera-tested)
+v22f's boxes were partly from memory and old photos (Portra = 2000s Portra 800 style, Ektar = pre-2025 black box,
+Pro 400H invented). Redrawn from retailer product photos (logos/ref2, Analogue Wonderland Shopify product JSON):
+current Portra 400 (yellow bands, blue-violet panel), Kodak Eastman Ektar 100 (yellow, red K square, black band, red
+strip), Fujicolor Pro 400H (green band, violet, black band, cream text), Superia X-TRA 400 for Classic Neg, Provia 100F
+style for Classic Chrome, VISION3 Super 8 box for Vision3 250D/500T. v22g (work/films_v22g, SHA 9eeec157...) = v22d with
+only ICONBIN changed; verify ALL OK; compare.png = photo vs icon. Personal build.
+
+## 41. gr-custom-tool 549591d / GR4-LUTSmith 2.1.1 review (2026-10-11, reading only)
+- LUTSmith 1.7.0-2.1.1: Fitter / HueFitter / post_effective / hue_apply_q / HUE_SIGMA unchanged since 1.6.0, so §28a
+  still holds (v16 ahead on 24/28 numbers). New: parallel turns (--jobs, helper processes, results identical to serial),
+  a Pareto set of kept turns, shareable look.json (byte-identical rebuild), `check` (identify a firmware file: official /
+  which slots carry looks, names, icons) and `selftest` (rebuild a bundled example and compare), multilingual slot
+  names checked against per-language character sets.
+- gr-custom-tool 549591d (GR IV): Adobe Look/Profile XMP -> target JPEG on the user's DNGs (LibRaw/OpenCV approximation,
+  or Lightroom Classic via a plugin), 2 DNGs fitted + 1 held out; same resources as ours (s16 matrix, u16 gamma, s32
+  MultiAxial). update_policy.py relaxes the GR IV CheckVersion gate 0x5383171C (8 branches) to allow older firmware, and
+  the docs warn: **factory-reset the camera before flashing an older/stock firmware, or settings for features the old
+  firmware lacks can hang the menu.** GR III needs no gate patch (version >= current, §8), but the warning applies to us:
+  a saved Image Control tone 25+ (or Custom 1/2 holding one) under stock 2.10 is untested. Until checked, set Image
+  Control to a stock mode in shooting and in C1/C2 (or reset) before going back to stock.
+- Slots (gr4_editor/slots.py + native/registry_state.c, GR IV 1.11.10.7): **up to 16 new filters** (style ids 34+),
+  each cloned from a factory filter, plus the 6 hidden Mono styles 25-30 unlocked. Each new filter gets its **own
+  slider storage** (main/mirror/shadow + Custom snapshots, APData save/load hooks, per-slot defaults), and on load a
+  saved selection whose style is no longer present resets to Standard (11). Ours (v13+) adds 6-8 entries and the
+  appended films share Standard's sliders (§36): their per-slot storage is a lead if we want separate sliders per film.
+- Space: gr-custom-tool **grows the RTOS image**. Code and tables are appended after its end (_Patch.append, address
+  0x53000000 + len), and firmware.py re-encodes the container with a larger decoded size ("growth" repack). Per-filter
+  slider state goes on the heap: the allocation size of an existing settings object (owner cell 0x550885B4) is raised
+  and each filter gets 468 B in it (native_raw.migrate_raw_arrays). Their README says it is not yet verified on a
+  camera. GR4-LUTSmith does not grow: it reuses fixed regions and refuses when they are full. For GR III, growth stays
+  blocked on the open question in §23 (does BOOT load more than the stock RTOS section length?). Their growth repack +
+  a GR IV report of it booting would be the evidence to look for.
+
+## 42. Free space for growth: RTOS can grow ~15 MB (static analysis, 2026-10-11, not camera-tested)
+Answers the §23 / §41 open question (does BOOT load more than the stock RTOS length?) from the code:
+- **Updater** (running RTOS, FwPartition.cpp). Each update rebuilds the eMMC fw partition table from the new file's
+  PARTPARA (`make partition table` 0x536299A8): StartSec[0] = PARTPARA word 0 (0x600), StartSec[i+1] = StartSec[i] +
+  AreaSize[i]/512, LoadAddr/JumpAddr from the record. The section write (0x5362C830) only checks
+  `StartSec[i] + sectors(DataSize) <= StartSec[i+1]` ("partition data [%d] size = %d is over!!") and stores the real
+  DataSize. The decode buffer is allocated with the header's decoded size (0x5362BF4C), no fixed cap.
+- **BOOT** (section BOOT, runs at 0x50B00000). Reads the 0x87-sector table to 0x50B70100 and loads RTOS with
+  `emmc_read(StartSec, ceil(DataSize/512), LoadAddr)` (0x50B00CBC..0x50B00CF0), i.e. the stored size, no constant.
+- **PARTPARA** records (16 B from +4: AreaSize, LoadAddr, ?, JumpAddr; section flags >> 16 = record index), GR III =
+  GR IV for the first two: BOOT 0x70000 @0x50B00000; **RTOS 64 MB @0x53000000**; SRIC 64 KB @0x510E0000; SHELLCMD
+  64 KB @0x510F0000; ICONBIN 24 MB @0x51600000; LINUX 32 MB @0x41000000; INITFS 128 MB @0x43000000.
+
+| Section | Used | Flash area | RAM bound | Headroom |
+| --- | --- | --- | --- | --- |
+| RTOS | 0x10B55C0 (16.7 MB) | 64 MB | RW data at 0x55000000 (and the RX mapping ends 0x54FFFFFF) | **0xF4AA40 = 15.3 MB** |
+| ICONBIN | 0x1181314 (17.5 MB) | 24 MB | 0x52E00000 | 6.5 MB flash; RAM tail 0x52781314.. is referenced (591 literals into 0x5278-0x52E0) -> not free without more work |
+| SRIC | 0xC000 | 64 KB | - | 16 KB |
+
+The RTOS tail 0x540B55C0..0x54FFFFFF: no MOVW/MOVT pair or literal in code forms an address there (the only movt hits
+are conditional data words), and the MMU maps it read-only, so no CPU code writes it. Appended code/tables go at
+0x540B55C0+ (after the .data LMA, which stays put), exactly like gr-custom-tool's `_Patch.append` on GR IV.
+BOOT's eMMC read (0x50B03F54) splits counts above 0xFFFF sectors, so no 16-bit cap; the fw table has one bank in practice (bank byte 0x10 only ever set to 0, 0x5362C2B4), so there is no A/B fallback if a grown RTOS fails to boot.
+gr-custom-tool's README/DEMO_RELEASE only say the whole public release is untested on a camera (offline checks only); nothing specific about growth. Still unproven: a camera boot of a grown image. Cheap check: a tiny growth build (e.g. 64 KB marker + one
+relocated table read through it) + a SYS_md dump of the tail via the §22d script probe.
+
+### 42a. Growth probe and films v23 (built 2026-10-11; camera: v23 boots and runs extension code, §42b)
+Same reading of the updater/BOOT as above, reached independently (section loop 0x5362A4C4: type 2 = PARTPARA ->
+table, type 4 -> partition = flags >> 16 -> 0x53629D58 -> 0x5362C82C, "write partition data NG!!" when over;
+FwDecoder 0x5362BD44 compares header and footer fields only). With one fw bank (no fallback), the first camera test
+must not depend on extension code, hence the probe.
+Tools: gr3patch.Image.grow(n) reserves bytes after the RTOS image (inserted at build(), header length updated, frames
+repacked with gr-custom-tool's growth codec); make_slots23.ExtSpace = every allocator falls back to the extension.
+- **Growth probe** `work/probe_ext` (make_probe23.py): v22g + 4 KB extension holding only the first film's name text
+  ("Portra EXT"); no code there. verify_slots23 (v18 checks on a grown image): all OK except the two name checks,
+  which see "Portra EXT" from the extension (expected). SHA-256 74d8777bf57917a1dfda803c8b9bb0adc955725c1d3e7de0639c336a6451de91.
+- **Films v23** `work/films_v23` (make_slots23.py): v22g + 64 KB extension + Gold 200 back (7th appended film, tone 31;
+  the four replacing films move to tones 32..35). All ten legacy record slots were taken, so the three per-slot tables
+  of the ctx fill (look records 0x55018D94, MultiAxial sets 0x55018CF0, YCbCr sets 0x55018E4C; each read only by the
+  movw/movt at 0x536DC28C..0x536DC2A8) move to the extension with 32 entries; new slot 26 has its record in the
+  extension (Classic Chrome lands there; Gold takes slot 9). Icon id 0x2A4 (Kodak Gold box icon). In the extension:
+  the tables, slot 26's record, and what no longer fit the stock caves (MA make hook, RAW-dev conv/kind, shooting detail
+  kind, ImageTone tables) - 0x394 of 0x10000 bytes used. verify_slots23 --v23 ALL OK (122), emulated over the grown
+  image with the ROM mapped read-only (no write into the extension). SHA-256
+  ec8898fd0d99e61946e9666791800564526fd9bdd2085c6692cc0379c36c28c3. Only after the probe passed: v23 runs extension
+  code on every frame (MA make), so an unloaded extension would crash at start-up.
+
+### 42b. Films v24: every film appended, data in the extension, stock modes back (built 2026-10-11, not yet camera-tested)
+User: v23 looks good on the camera (so the grown section loads and extension code runs); move every custom film to the
+new space. GR4-LUTSmith 2.1.1 checked first for its "new space / copied pipeline": it does **not** grow the RTOS
+(make_firmware refuses edits outside the RTOS section and checks the section layout is unchanged). Its room is a pool
+of dead data (hidden Grainy/HDR and, when unused, High Contrast data; 2.7-5.8 KB), and for the "extra" slots it gives
+each slot private copies of the stage blocks (tone-curve set header + 256-entry curves, hue table + 8 links + header,
+colour-after header + 10 links + 9 matrices) from templates and re-points that slot's three rows per stage, because
+those blocks are shared between stock looks. Our films have done the equivalent since v13: own tone -> own record slot
+-> own record (copy of Standard's) with own look matrix, curves (library slots 9-11 per call), MultiAxial set, YCbCr set,
+CSP post matrix; only the slider storage is borrowed. So there is nothing more to copy; v24 just moves it all out:
+- make_slots24.py (on make_slots23.setup, now parametric): all films appended, tones 25..35 (v23's tones kept), record
+  slots 26..36 with records and matrices in the extension (per-slot tables 40 entries; legacy records 0..10 and their
+  matrices stay stock), exact 256-entry curves for every film in the extension (make_slots15.CURVE_REGIONS), Cross
+  Process's library curves 3-11 untouched and the ctx fill keeps its preset chain (make_slots15.CROSS_CHAIN, as v14).
+  Movie list stock. Films share Standard's sliders (the four former replacements lose their own).
+- Still in v13..v16 caves: code in the Cross "random" case / Box-Muller helper (unreachable) and the moved 10-bit MA
+  table; overflow to the extension. Extension: 0x577C of 0x10000 bytes taken (17 KB curves, 4 KB data area), 42 KB free.
+- verify_slots24.py --v24: ALL OK (112): every stock mode and sub-mode incl. Cross Process (x797 1/2) identical to stock
+  in both pipeline stages, also right after a film; per-slot tables 0..25 stock; film records in the extension; curve
+  error 1/16384 (exact); lists [23, 10, 23] with the stock movie list. make_slots23 (v23) still rebuilds ec8898fd.
+- SHA-256 7c21583d1ecbfee5da7dfae3ffac31afad2b27a2fab7e4e8c61f7826e015b650. Before flashing: movie Image Control to a
+  stock mode (v23's movie list held the four films).
+
+### 42c. Films v25: five more appended films (built 2026-10-11, not yet camera-tested)
+User: add Fujifilm Nostalgic Neg / Eterna / Velvia / Reala Ace and Leica Eternal. Sources:
+- Fujifilm: `abpy/FujifilmCameraProfiles` sRGB cubes (CC BY-NC-SA 4.0), fitted as Classic Neg / Classic Chrome (§22n:
+  srgb at -0.88 EV, boost 4 / neutral 3, joint_fit, lab_fit, hue sectors; work/films_v25/fit.sh, refit25.py).
+- Leica Eternal: no open-source recreation exists; the target is Leica's own Look LUT (17^3, "Unique Leica Look
+  ID: 6"). Leica data: **personal builds only; the cube, its fit and anything derived are not published.**
+  It is a look applied on a finished photo, so cube_fit got in_cs `grstd`: target = cube(GR Standard rendering of L)
+  (cube_fit.standard, the same model as the "Standard vs target" score). Result: a strong S-curve (Standard grey 118 ->
+  123, -4 EV 11 -> ~2, cool shadows, warm highlights); on the GR it will be darker / harder than on a Leica if Leica's
+  base rendering is flatter (unknown).
+Fit scores general / warm / ColorChecker / camera chart (dE2000, with sectors, as stored):
+| film | score | v15-style fit before sectors |
+| Nostalgic Neg | 2.46 / 1.36 / 1.29 / 1.93 | 2.83 / 1.57 / 1.40 / 2.09 |
+| Eterna | 1.16 / 0.91 / 1.14 / 1.05 | 1.38 / 1.04 / 1.12 / 1.13 |
+| Velvia | 2.09 / 1.49 / 1.89 / 1.79 | 2.38 / 1.57 / 2.05 / 2.37 |
+| Reala Ace | 2.15 / 1.64 / 1.64 / 2.04 | 2.71 / 2.03 / 2.12 / 2.42 |
+| Leica Eternal | 0.42 / 0.43 / 0.44 / 0.47 | 0.47 / 0.47 / 0.45 / 0.53 |
+On two real GR III RAW scenes (photo-v13 R0011936/38) model vs target 0.94/0.89, 0.38/0.39, 1.01/1.06, 0.83/0.73,
+0.26/0.19 (work/films_v25/preview.jpg). Provia (= Standard, §22n), Astia, Pro Neg Std/Hi, Fuji Bleach Bypass skipped.
+Build: films25.py registers names / labels / box icons (icons 0x2A5..0x2A9) and NSLOT 48; make_slots25.py =
+make_slots24.main (refactored, v24 still rebuilds 7c21583d) with films25. Tones 36..40, record slots 37..41.
+verify_slots24.py --v25 (implies --v24; tone scans now 0..47): ALL OK (142), lists [28, 10, 28], RAW dev 30/31 options,
+every film MultiAxial = own sectors, stock modes identical. Extension 34.9 KB still free.
+`work/films_v25/fwdc239b.bin` SHA-256 d43ac8faac919e5c95f12c55080e17106a827ee83025092e4b70c8e35e97bff5.
+
+## 43. gr3-firmware-research-skill v0.1 (7c114f6) review (2026-10-11, reading only)
+Knowledge-only skill (no builder, no addresses for most hooks) describing a six-slot build on the **same file**
+(root SHA-256 d6a3c9c2..., = our fwdc239b.bin); their camera evidence is user reports, like ours. Lists our public repo
+as closest prior work. Their namespaces: public tone 30..35 (we use 25..35), processing entry 26..31, menu rows 12..17,
+DNG/maker-note ImageTone 0x10C..0x111 (**same code space as ours**: their tone 30 and our tone 25 both write 0x10C, so
+film RAWs cross-open as the wrong look between the two mods), name ids 791..796 (21 languages), icon ids 671..676
+(our Gold icon 0x2A4 = 676 is in that set). New vs our notes:
+- **Persistence sanitizer.** Tones 30+ never reach the 0xB26 UserData record or U/BOX snapshots: every durable write
+  maps custom tones to 11, the real selection lives in private files (`CFnSTATE`-style) + private Grain keys; damaged /
+  missing private records fall back to Standard. Purpose: stock firmware after rollback only ever reads stock values.
+  Ours stores tone 25+ raw at +0x1C2/4/6 (the §41 "select a stock mode before reflashing" caveat). Static-only on
+  their side too; no on-device rollback test.
+- **Per-slot sliders.** RAM banks at data+0xB28 + slot*60 + group*20 + field*2 (10 fields, 3 Image Control sets),
+  allocation of the settings object extended to 0xB28 + N*60, serialised schema stays 0xB26. Ours share Standard's.
+- **RAW development per slot.** RAW param object is a 0x800 heap allocation, params at +0x400, row stride 17, set stride
+  340, 20 rows; RAW-dev enum 13 reserved, slots at 14..19. Ours: enum 13..18 and films use the as-shot cache entry 0.
+- **Colour Grain.** Image Control param id 15, UI Off/weak/medium/strong = native 0/3/2/1, state SI+0x795, colour modes
+  made grain-aware via enable/preparation seams of the monochrome grain engine; per-file in tag 0x0247 index 19, file
+  encoding 0/5/3/1; one stock "exclusion vector" in the metadata encoder writes a fixed value for 8 colour tones.
+  Grain edit page and sidebar read the same state. Addresses not published.
+- **Playback DISP** per file: DNG code -> property 37 ordinal 13..18 -> display 30..35 -> name/icon; tag 0x0247
+  idx 0..6 -> props 38..44, 9 -> 49, 10 -> 50; they add a 10th (Grain) row in prop 140 (obj+0x3BC). Our films'
+  playback info screen is not checked yet.
+- **Update gate** 0x536284E0 compares all four version bytes 02 0A 15 1B (+0x38 and +0x50), unsigned <, equality
+  accepted (refines §8, which only had major/minor). Build timestamp string at +0x58.
+
+### 43a. Second pass against v24/v25 (2026-10-11, reading + one scan, no camera)
+Repo unchanged (still 7c114f6). What applies now that films are tones 25..40 / maker-note codes 0x10C..0x11B:
+- **Their completion checklist vs ours.** Done in ours: shooting UI/name/icon, rendering, per-file identity (maker-note
+  code, §34c), RAW-dev list / as-shot / rendering, remembered tone. Not done: per-slot sliders (all films share
+  Standard's), rollback sanitizer, colour Grain, Playback info screen. Their playback identity goes through its own
+  bridge (DNG code -> property 37 ordinal -> display tone -> name/icon), separate from the RAW-dev reader 0x535BF7A8 we
+  patched, so our films' playback info page may show Standard or nothing; added as a check to the v24/v25 HOW_TO_TEST.
+- **Code range.** They verified 0x10C..0x111 only and warn not to extrapolate; ours writes up to 0x11B (v25) and the
+  reader/writer tables are emulated end to end (verify --v25), but any second consumer of the code (playback bridge)
+  is unchecked. Test step: as-shot of a Leica Eternal DNG.
+- **RAW-dev parameter cache.** They give each slot its own RAW-dev values by enlarging the cache (0x800 heap object,
+  3 x 20 x 17); ours keeps the stock 3 x 13 x 17 cache and maps films to Standard's entry (§36), memory-safe at any
+  film count. Their list capacity 21; ours 31 (option allocation follows the patched capacity, §34d).
+- **Release scan.** Their tools/release_scan.py (MIT, stdlib, read-only) on gr3-film-mods-public HEAD 6326986 (git
+  archive, history not scanned): no personal paths / emails / credentials of ours; 2 email hits are upstream addresses
+  inside the spektrafilm licence text; 219 "numeric payload" hits are the published fit JSONs (intended). Usable as a
+  pre-push check for the public repo.
+- Still the best new-feature leads, in order: per-slot slider banks (+0xB28 + slot*60, matters more with 16 films sharing
+  one set), colour Grain (param 15, SI+0x795), sanitizer for rollback. None has addresses published; each is our own RE.
+
+## 44. Settings storage, stock with a film tone, plan for v26 (static + emulation, 2026-10-11; built as v26, §44a)
+User: do the research-skill features in groups of 2-3 builds: colour Grain, per-film sliders, safe return to stock
+(private file accepted), RAW-dev values per film, playback info. Grain default Off for every film.
+- **Stock firmware with a saved film tone faults.** run_tuning on the stock image: tone 25 renders (= Negative record,
+  13 bytes differ from Standard), tones 26..47 read records past the 26-entry table 0x55018D94 (pointers into other
+  ROM tables) and fault at 0x536DF124 (unmapped read in emulation; on the camera that memory may be mapped, so garbage
+  or a crash). Nothing found yet that clamps the tone on load. So after flashing back to stock with a film in a still
+  set or in U1/U2/U3, live view is expected to break: the §41 "stock mode first" step is mandatory, not a precaution.
+- **Settings files.** AppData (src/AppData.cpp) stores keys 0..11 as files `APData%02d.bin` (name builder 0x53826BDC,
+  `cmp r1,#0xb`; write 0x53826C54 -> FS write 0x53825FA8(fs, name, size, src); read 0x53827218 -> 0x53825648; size
+  0x538270BC; per-key byte at obj+0x10+key; delete-all loops over 12). Object = [0x53828014()+8], fs = [obj].
+  Keys: 0 flag byte, 1 main user settings (0xB26 B), 2..8 seven more full records (table 0x53B59200; U1/U2/U3 / BOX
+  snapshots), 9 version string (0x53B4EC18), 10 a 0x104C-byte table (0x53B593AC) compared word for word on load ->
+  "Invalid user FwUp!!!!! Clear UserData" if different, 11 used by 0x532DC318.
+  Save-all 0x5323F278 (writes keys 0, 1, 2..8, 9, 10; only writer besides a debug command 0x5304B2DC).
+  Load 0x5324B288: records are heap blocks of 0xB28 B (alloc via vtable +8, sites 0x5324B338/0x5324B400/0x5324B4A4/
+  0x5324B5B8/0x5324B6E0), defaults copied first (0x532406FC), then the file read with size 0xB28, per-record
+  fix-up 0x53246DF8 (u16 fields: value byte + flag byte, copied only where the flag is set). Exit 0x5324B42C.
+- **Standard's sliders** (bytes): set No0 +0x1C8 sat, +0x1D4 hue, +0x1E0 key, +0x1F2 contrast, +0x204 HL, +0x216
+  shadow, +0x228 sharpness, +0x278 shading, +0x28A clarity; No1 = +0xE2, No2 = +0x1C4. Store functions = the callers
+  of the 27 checks found by make_slots.check_sites(11).
+- **Tone change**: store functions 0x5327B394 / 0x5327B3B4 / 0x5327B3D4 (`strb r1,[r3,#0x1c2/4/6]`, then apply-all
+  0x532750F8), 13 callers each. Record copies elsewhere: 0x5326CC44 (field-by-field copy), 0x53246DF8 (load merge).
+- Plan v26 (per-film sliders + safe return, they share the storage): RAM banks after the main record (allocation
+  0xB28 -> 0xB28 + banks), swap on tone change (bank[old] <- Standard's 9 fields, fields <- bank[new]); save-all
+  sanitises each record in place (film tone -> 11, Standard fields <- Standard's bank), writes it, restores it, and
+  writes a private file (FS write with our own name, outside the APData key range) holding the film tones, film
+  slider values per record, checksums of the sanitised records and the banks; load restores films only into records
+  whose checksum still matches (stock changes win). v27: colour Grain + playback info + RAW-dev values per film.
+
+### 44a. Films v26: separate sliders per film + safe return (built 2026-10-11, not yet camera-tested)
+make_slots26.py (= make_slots24.main via the new make_slots24.EXTRA hook list, films25 registered; v24/v25 still
+rebuild 7c21583d / d43ac8fa): `patch_persist` adds one 0x5F8-byte code block in the extension and patches 10 words:
+- 4 alloc sites `movw r1,#0xb28` -> 0xB28 + 0x510: the main record's block carries the private area (= file image):
+  header (magic 'GRF1', size, film count, checksum), 8 record entries (tones, film fields, the Standard fields that
+  were written), 24 slider banks (Standard + tones 25..47) of [3 sets][9 fields].
+- tone stores 0x5327B3A4/C4/E4 -> `bl swapN`: bank[old] <- Standard's 9 fields of that set, fields <- bank[new], for
+  Standard and this build's films only; then the store.
+- save-all 0x5323F274 -> save_hook: sanitise all 8 records in place, stock save (keys 0..10 unchanged), restore the
+  records, write FILMDATA.bin with the stock FS write (F:\ + H:\DOMDTBK copy, the APData mechanism).
+- load exit 0x5324B42C -> load_hook: read FILMDATA.bin; valid -> a set gets its film back only if the record still
+  shows Standard with the exact Standard fields written; else banks re-initialised (Standard = current fields, films
+  = factory defaults, all 4 = 0).
+- reset 0x5326CC40 (Reset, shooting settings part) -> stock reset, then banks re-initialised.
+verify: verify_slots24.py --v25 on v26 ALL OK (142); verify_v26.py ALL OK (30): fake model + stubbed AppData/FS,
+swap per set, save = stock keys/sizes and byte-identical to stock without films, no film tone in any written
+record, RAM unchanged after save, reboot restores main and U-mode films, stock-side tone or slider change wins,
+damaged file -> Standard, v25 raw film tone kept, reset re-inits.
+Not covered offline: the real FS (file creation, size, timing), the UI paths calling the tone stores, U-mode recall
+on the camera (record memcpy, no swap: the recalled record brings its own film fields), concurrency during save.
+Extension: 32.6 KB free. `work/films_v26/fwdc239b.bin` SHA-256
+6f42232f1782b7d1f70721fd3058653cdac8fc17af6a409276487f6308b8e1db.
+
+## 45. Films v27: Grain for the films, playback info, RAW-dev values per film (built 2026-10-11; camera: no grain, see §47)
+make_slots27.py (= v26 + `patch_v27` via make_slots24.EXTRA; v26 still rebuilds 6f42232f). One 0x500-byte code block
+plus tables in the extension (30.9 KB free after), 39 words patched.
+- **Grain internals.** Grain is "Particle" in the firmware: native 0 Off / 3 Low / 2 Mid / 1 High (debug strings
+  Off/Low/Mid/High). Record fields: Monotone/Soft/Hard/Hi-Contrast B&W No0 +0x29A..+0x2A0 (No1 +0x37C.., No2 +0xE2
+  later), and a hidden one for **Negative Film** (+0xA54 No0): setter, default, apply-all and the pass-through all
+  handle it, only the parameter list lacks it, so the Grain engine is not monochrome-only. Shooting state SI+0x795 =
+  property 0xC3 (setter 0x5354C570, getter 0x5354A36C, validity 0x535542CC: value 0..3 and state+0x6C0 != 2, no tone
+  check). SetParticle 0x532C1780 / GetDefaultValueParticle 0x532C9744 switch on tone 13..22 per set.
+  Apply-all 0x532750F8 fills one struct (Grain at fp-0xB7, default 0; each "active" check writes its field) and
+  pushes it as property 0x82 at 0x53279A0C. Pipeline pass-through 0x536DB7DC: Standard's case writes 0 to SI+0x795
+  and ctx+0x1F8; mono and Negative cases pass SI+0x795 through. The UI current value is the live property.
+- **Image Control parameter screen.** List table 0x53B3488C [set 0..2][index 0..11] -> (items, u16 count); item =
+  (visibility, id): visibility 2 always, 0 not in RAW development ([obj+0x19D] = 1), 1 only there. Ids: 0 sat, 1 hue,
+  2 key, 3 contrast, 4 HL, 5 shadow, 6 sharpness, 7 filter, 8/9/11 per-mode toning, 10/16 HDR, 12 toning,
+  13 shading, 14 clarity, 15 Grain, 17 base (No1/No2). Index from GetBaseKindDetailControl 0x531ACA98 (films:
+  v16's layout stub -> proxy = 0). Readers 0x531AFA10/0x531AFAB8/0x531AFF88/0x531B01D0 (`mla 12*set+index`).
+  Same screen class serves RAW development, where Grain/Clarity are hidden for every mode.
+- **v27 Grain:** films -> index 12 (0x531ACB1C bl -> own stub), table [3][13] with entry 12 = Standard's list of the
+  set + (0, 15). Values per film and set in the spare bytes of the v26 banks (bank + 27 + set; v26 files: 0 = Off),
+  so they are in FILMDATA.bin and never in the stock files; U1/U2/U3 use the film's current Grain. Default Off
+  (3 default branches of 0x532C9744). SetParticle film branch: store, and for the active film (record set/tone, Grain
+  settable 0x5324E000) set property 0xC3. Apply-all: 0x53279A0C -> hook writes the active film's Grain into
+  fp-0xB7. Pipeline: 0x536DB800 -> films get a copy of Standard's case with `ldrb r6,[r3,#0x795]` and
+  `strh r6,[ip]` (ctx+0x1F8) instead of the zeros.
+- **Playback info.** Importer 0x535C24EC: maker-note ImageTone code - 0x100 <= 11 -> table 0x53D2DD64 -> property 37
+  (1..12), else 0 (no Image Control shown: our film shots showed nothing). 0x532B44BC: ordinal -> display tone (table
+  0x53B5CBC4: 11,12,10,14,15,16,17,8,19,20,21,22); icon 0x532B6EEC (u16 table 0x53B5B2F0 by display tone - 8);
+  parameter rows 0x532B7CFC (switch on display tone - 8). v27: codes 0x10C+k -> ordinal 13+k -> display 25+k -> the
+  film's box icon, rows = Standard's case. Also fixes earlier v24-v26 film shots (same codes).
+- **RAW development values.** RawDevelopmentModel (0x3C4 B, inline in its parent; ctor 0x5327B948): cache
+  +0x86 + slot*0xDD + entry*0x11, slot = Image Control set (selected slot +0x82, enum per slot +0x83..), 17 values
+  indexed like the parameter ids. Init 0x5328993C: fill 0x53288E40 (each entry from that mode's shooting fields of
+  the set, via 0x53286564), then the as-shot entry from SI (0x53289A3C). Selection 0x53289304 (slot, enum) and
+  0x53289314 (saved). v27: banks [3][24][17] + owners after the v26 area in the main record block (allocation
+  0xB28+0x510+0x4D0 = 0x1508, RAM only, magic 'RDB1'); fill hook builds every film's values from its own shooting
+  sliders (live record fields for the active one, v26 bank otherwise); as-shot film takes the entry; selecting
+  Standard / a film / "as shot" saves the entry to the previous owner and loads the new one.
+verify: verify_slots24.py --v25 --v27 ALL OK (142; films' shooting layout = list 12), verify_v26.py ALL OK (30),
+verify_v27.py ALL OK (51): list index and lists (stock unchanged, film list = Standard + Grain, hidden in RAW dev),
+defaults Off without asserts, SetParticle (bank per set, property only for the active film / when settable,
+Monotone stock), apply-all hook, pipeline (films keep SI+0x795, Standard 0, Grain Off output = v26), playback
+(stock codes unchanged, films -> ordinal/display/icon/rows), RAW-dev (init from shooting sliders, swaps, saved
+selection, as shot, enum outside -> untouched).
+Not covered offline: the Grain effect itself (DSP, DF_EX.bin), the screens, the maker-note Grain field (a playback
+Grain row is not added). `work/films_v27/fwdc239b.bin` SHA-256
+6e11b3df120377e3954f66a06b93f1c332840361fd76ff0c0956f044f2b68943.
+
+## 46. Films v28: Grain in the file / playback row, Grain in RAW development (built 2026-10-11; camera: grain recorded, not applied, §47)
+make_slots28.py (= v27 + `patch_v28` via make_slots24.EXTRA; v27 still rebuilds 6e11b3df). 420 B of code in the
+extension (30.5 KB free after), 4 words patched, 3 list bytes changed.
+- **Grain in the file was already there in v27 (stock code, correction of §45).** Maker-note tag 0x0247 (44 B, 22 s16)
+  is built by 0x535C81CC; bytes 38..41 come from 0x535C67D4: low nibble = Grain file code via the vector 0x5534AD18
+  (native 0/1/2/3 -> 0/1/3/5, i.e. Off 0, High 1, Mid 3, Low 5) unless the tone is in the exclusion vector 0x55357B08
+  (11 Standard, 12 Vivid, 17..22; built by 0x535CA050 from 0x53D2DE10) -> 8 = none. Films (25+) are not excluded, so
+  every film shot since v24 records SI+0x795 (v24..v26: always 0 = Off). Readers: DNG / RAW development 0x535C1158
+  (code -> SI+0x795, any tone, 8 leaves it), playback 0x535C3BC8 (code 0/1/3/5 -> property 0x33 = 1 Off / 2 High /
+  3 Mid / 4 Low, else 0). Index 17 (bytes 34..37, 0x535C65A8) is the same pattern for another field.
+- **Playback Grain row.** The row builder keeps 10 std::function slots (storage fp-0xD0 + 16k, manager +8, invoker
+  +12; shared manager 0x532B576C / invoker 0x532B57F0 at fp-0x110 / fp-0x10C; closure = {row fn, 0, context sb}).
+  Stock Grain row 0x532B5698 (Monotone cases): property 0x33 -> '--' / '3' / '2' / '1' (High..Low), icon 0x1DE;
+  same guards as Clarity. Standard's case fills 9 slots and clears slot 10 at 0x532B81C8 (also reached from case 21).
+  v28: 0x532B81C8 -> `gr_row`: display tone (fp-0xF5) 25+ -> context back from slot 9's closure (+8), slot 10 filled
+  with the Grain row exactly like the stock blocks (template = stock shading block, checked word for word), then the
+  row loop 0x532B81F0; anything else -> the stock clear.
+- **RAW development.** Adjustable flags 0x53B5A750 [13 enums][17]: Grain (15) is 1 for enums 3..7 (the monochrome
+  modes and Negative Film) and 0 for Standard, whose row the films use (v18). Grain getter 0x53284480 (no flag),
+  setter 0x5328843C, apply 0x53288390 (enum 0 = as shot -> SI+0x795; else flag -> entry value -> 0x535597BC). The
+  as-shot entry builder 0x53284EA8 takes value 15 from the file's Grain. v28: film lists' Grain item visibility
+  0 -> 2; setter / apply entry -> film enums (13..12+n) store / apply entry 1's value 15 (the per-film entry swapped
+  by v27); init hook (wraps v27's) sets every film's value 15 from its shooting Grain (bank + 27 + set, >3 -> Off) and
+  the owner's into entry 1.
+verify: verify_slots24.py --v25 --v27 ALL OK (142), verify_v26.py ALL OK (30), verify_v28.py ALL OK (75 = 24 new + the
+51 v27 checks with the films' Grain shown in RAW development): row template, v27 -> v28 diff (4 hooks + 3 list words),
+maker-note Grain for stock tones unchanged and for every film 0/1/3/5, DNG and playback read-back, slot-10 hook
+(film / other tones, old content destroyed), Grain row text through the stock invoker, RAW-dev setter / apply / getter
+(stock enums identical to stock, films per slot), init from the shooting Grain, selection swap.
+Not covered offline: the screens (the 10th playback row on the real layout, the Grain item in RAW development), the
+Grain effect itself. `work/films_v28/fwdc239b.bin` SHA-256
+f6c3eb0fb91077dfc12b1afd831b944b8b7b09e4e8c93f7d5f126fad48576abf.
+
+## 47. Camera: film Grain recorded but not applied; the effect-stage gate; films v29 (2026-10-11; camera: grain visible, §48)
+User, photo-v28 (v28, Portra tone 25, ISO 8000): R0012172 Grain Off, R0012173 Grain High. Maker note 0x0247 byte 38 =
+00 / 01 (recorded correctly), but no grain by eye and the same fine-detail noise (Laplacian std 3.16 vs 3.13). User saw
+no grain in v27 either.
+- **Cause: processing-plan gate.** 0x53513504 builds the shot's processing plan; 0x535131C0 sets plan+0x24, the stage
+  that applies Shading (SI+0x793), Clarity (SI+0x794) and Grain (SI+0x795) (parameters 0x53503054: p+0 Shading table,
+  p+2 Clarity, p+4 Grain native 1/2/3 -> 3/2/1, p+6 SI+0x796, p+8 float; ARM Granulation 0x5367AD3C, amplitude
+  0x100/0x80/0x40 by p+4, in the stage at 0x53680DC0), by tone: 11 / 12 / 17..19 / 21 -> Shading or Clarity != 4
+  (4 = 0); 13 / 15 / 16 / 22 -> Shading, Clarity or Grain (0x53513240); 14 -> always; 20 -> SI+0x796 != 0;
+  anything else -> 0. Films (25+) got 0: their Grain (v27/v28) and their **Shading / Clarity sliders (since v13)** were
+  never applied. v27's pipeline check only looked at the tuning field (obj+0x1F8), which is set for films; it did
+  not cover this gate.
+- **v29** (make_slots29.py): default `mov r3,#0` at 0x53513210 -> stub: tone 25..25+n-1 -> the Monotone rule
+  0x53513240, else stock. One word patched, 20 B of code.
+verify: verify_slots24.py --v25 --v27 ALL OK (142), verify_v26.py ALL OK (30), verify_v29.py ALL OK (80): gate on
+stock vs v29 over tones 0..22, 25..41, 60 and Shading / Clarity / Grain combinations (stock tones identical; films 0
+before, = Monotone after), v28 -> v29 diff (one word outside the extension), the v28 and v27 suites.
+Not covered offline: the stage itself on a colour film image (it runs on the ARM, but needs the capture buffers).
+`work/films_v29/fwdc239b.bin` SHA-256 3e52df7bfc0ca87fe854a4466a4c2fe959a216533192975d4d10befe6d057840.
+
+## 48. Camera: v29 grain visible, no Grain item in RAW development; films v30 (2026-10-11, not yet camera-tested)
+User: with v29 the grain now shows on film shots (the §47 gate fix works), but RAW development has no Grain item.
+- **RAW development has its own parameter list table** 0x53B3476C [set 0..2][kind 0..11] -> (u8 parameter ids,
+  count) (no visibility byte; set 1/2 lists start with id 17), read by 12 functions in 0x53190268..0x531922F4 (each
+  `mov X,#0xc ; mla 12*set+kind`) and a max-count loop 0x5318E1BC (rows 0x60, end 0x120). Kind = +0x19B of the
+  screen, set = +0x19A, from its own GetBaseKindDetailControl 0x5318DEA0 (v16 stub: films -> proxy -> Standard's 0).
+  Stock Monotone kinds 2..5 do list Grain (id 15) there - correction of §45 ("not in RAW development for any mode"
+  was read from the shooting table's visibility, which the RAW-dev screen never uses). v28's visibility change on
+  the shooting film lists therefore had no effect on RAW development.
+- **v30** (make_slots30.py): RAW-dev table [3][13] in the extension (entry 12 = Standard's ids + 15), the 12 readers
+  repointed with stride 13, the max-count loop 0x68 / 0x138; 0x5318DEA0 -> stub: films -> kind 12, else v16's stub;
+  shooting film lists' Grain item back to visibility 0 (as Monotone). 41 words patched outside the extension.
+verify: verify_slots24.py --v25 --v27 --v30 ALL OK (142; RAW-dev layout of films = 12), verify_v26.py ALL OK (30),
+verify_v30.py ALL OK (88): RAW-dev kind (stock tones unchanged, films 12, v29 0), readers / table / loop decoded,
+stock kinds unchanged, films = Standard + Grain per set, v29 -> v30 diff, the v29 gate checks and the v28 / v27 suites.
+Not covered offline: the RAW-dev screen drawing. `work/films_v30/fwdc239b.bin` SHA-256
+ecdf9866800b4e40b1f716d10e81b303485d8d7aa61ee15e29223195f2b286fe.
+
+
+## 49. Autofocus: structure, low-light behaviour, levers (static, 2026-10-11)
+User: AF is slow, worst in low light; hardware limit or software? Static reading only, nothing patched.
+- Two engines (src/ class names): **ZAF** = on-sensor phase detect (ZafCorrelation, ZafDefocus, ZafReliability,
+  ZL/ZR line pairs, "ZAF_SEARCH_START") and **CAF** = contrast scan (CafProcess / CafDetection / CafWobbling,
+  "CAF_SEARCH_START", search path, step width, quadratic peak fit). Hybrid: ZAF gives defocus + reliability; low
+  reliability -> contrast scan (FarEndPointState / SearchFarDir / ElegantQuickSearch). AeInterfaceService also sets
+  aperture / ND for contrast AF (SetContrastAfAperture / SetContrastAfNdFilter) and there is an AE-for-assist-light step
+  (MSG_ID_LOCAL_FE_LV_START_AE_FOR_AF_ASSIST_LIGHT_REQ, AfAssistLed; user setting StillAfAssistBeam).
+- **Sensor drive mode during the contrast scan** = CAF obj+0x1022, 0 High / 1 Middle / 2 Low / 3 SuperLow, chosen in
+  0x533F4A70 (args: this, evaluate, default). It reads a 0x58-byte AE struct (AeInterfaceService 0x53492888 allocates it,
+  sends it to CAF once as message 0x60C40809 -> setter 0x533F3F5C -> obj+0xFCC): u32 t[0..3] compared with 0x7FFFF and
+  byte +0x54 vs a CAF count. t[0] <= 0x7FFFF -> High; otherwise Middle, Low or SuperLow as t[1] / t[2] / t[3] exceed it.
+  So in dim light the scan runs at lower frame rates (longer exposure per frame), and each contrast sample takes longer.
+  Meaning of t[] not decoded (AE fills it via commands 0x20000001/2 to [AeIf+0x50]). Frame rates per mode not decoded
+  ("lVsyncTimeUs 200fps Equivalent 4997us" fallback; CafFlameRate float = sensor info +0x18 -> CAF +0x390).
+- Debug override (RAM, until power-off): shell `CAF_Debug` (0x53017958): AllOff, InfocusTimeMeasure, PintShift,
+  CisDriveModeFix, YDivCoefMeasure, JointQuickReturn, MovieLensDebug, ContrastH1Data, SaveDebugFile, TestTrace, GetKfp,
+  DispCurrentState. `CAF_Debug CisDriveModeFix on CAF H|M|L|SL` (0x5341768C / 0x534174B8) sets +0x16D88/89/8A, which
+  0x533F4A70 obeys (fixed mode); `... on LV` keeps the live-view mode during AF (0x533F70A4).
+  `EnableAfDebugDataSave <0/1> [P/C/Z/O]` (0x53017778, flags +0x27..+0x2A of singleton 0x5506B56C). The store path
+  0x536955B4 (called from 0x536972BC) writes per shot C:\LVAE%04d.txt, C:\CAF%04d.txt, C:\AF%04d.srm, C:\Ref%04d.txt
+  (and C:\SR%04d.bin); the CAF dump prints VsyncTimeUs, IntegTimeUs, Gain, CafFlameRate, CafStepWidth, lens pulses,
+  contrast H/V curves, ZAF reliability / direction. Shell focus_spd / focus_vol are stubs.
+- Levers, in order of risk: AF assist light (user setting); drive-mode thresholds (faster scan, but shorter exposure per
+  frame -> more gain -> noisier contrast -> more misses: the stock trade-off); step width / search path; ZAF reliability
+  limits. Which one is the bottleneck is not known without measurements.
+- Probe: `work/af_probe1/` (script only, no firmware change): `EnableAfDebugDataSave 1 P C Z O` at power-on; shots in
+  bright / dim / dark light should leave the debug files. Not yet run.
+
+## 50. Films v31: 4:3 and 16:9 aspect ratios (built 2026-10-11, never flashed; superseded by v32, §51)
+User: "add 5:4, 4:3, 65:24, 16:9 to the ratio". Only four aspect ids exist (0 3:2, 1 4:3, 2 16:9, 3 1:1; §35), so
+v31 adds the two that are native and leaves 5:4 / 65:24 for a decision (see below).
+- UI setting = still settings [0x5320b31c()+4]+0x4c2, getter 0x53245260 (9 callers: menu text 0x531978a4, order
+  checks 0x531a1230 / 0x531b8310, toggle 0x53227140, 0x5328d8a4, AF 0x532afc08 / 0x532afe40 / 0x532afe70, debug
+  print 0x53366b78), setter 0x532525a4 -> capture property 0xd4 (0x5354c8e4; second sender 0x532580c4; apply-all
+  reads +0x4c2 at 0x53279c54). Capture side: CommonProperty +0x7b6 (setter 0x5355a464, validity 0x5355445c: 0..3
+  allowed unless state+0x6c0 == 2, other values pass). ~37 code readers of +0x7b6 (GetResolution 0x536a2a30 and its
+  15 callers, DigitalFilter, StoreImage, playback ExtractImageAspectRatio 0x535ed43c, RAW-dev conversions).
+- Stock already handles ids 1/2 in GetResolution (4:3 L 5328x4000, 16:9 L 6000x3376), nails, playback, Crop,
+  Resize and DigitalFilter. Stock **asserts** for ids 1/2 in: AF GetSelectableFocusArea (0x532afc30) and the two AF
+  area-size functions (0x532afe98 / 0x532afec4), and RAW-dev as-shot conversion (0x53289b0c).
+- v31 (make_slots31.py): menu as make_aspect.patch_menu (counts 4, order 3:2 4:3 1:1 16:9, 7 order refs, toggle),
+  strings "4:3" / "16:9" = ids 0x390 / 0x391 appended to the film string entries (getters' cmp 16 -> 18), stock icons
+  0x153 / 0x151; AF ids 1/2 -> the 3:2 values (x 80..640, y 60..420; 560x360 / 336x216, inside both frames);
+  RAW dev = make_aspect.patch_rawdev (3:2 RAW -> 3:2 / 4:3 / 1:1 / 16:9; 4:3 / 16:9 RAW keep their ratio).
+- verify_v31.py ALL OK (only expected words changed, GetResolution identical to v30 for all ids, menu / toggle /
+  names / AF / RAW dev); verify_v26 ALL OK; verify_slots24 --v30: only the 2 expected string-getter FAILs (it sees
+  id 0x390); verify_v30: only its v29->v30 word-diff check fails (v31 words are extra). Live-view framing for 4:3 /
+  16:9 not checked offline. Before returning to stock: aspect 3:2 / 1:1 (stock AF asserts on 1/2).
+- 5:4 and 65:24 on top: need ids 4/5 through every +0x7b6 / getter consumer (switches with asserts on unknown ids,
+  property validity, playback ratio detection, maker note / DNG crop, RAW-dev enums), or a "variant" byte that the
+  v17 geometry patches consult; CommonProperty has no spare byte near +0x7b6 (0x7b0..0x7bf all used), and capture,
+  playback and RAW development each need their own variant source. Not started.
+`work/films_v31/fwdc239b.bin` SHA-256 2a9d2b4cc3ad2885eb81fd6f76735a8b0588a0e0a7f00a815ec7dc6e46c0f1d6.
+
+## 51. Films v32: aspect ratios 3:2 / 4:3 / 5:4 / 65:24 (built 2026-10-11; camera: wrong live-view ratio + flicker, superseded by v33, §52)
+User: "replace 1:1 and 16:9 with 5:4 and 65:24". Ids: 0 3:2, 1 4:3 (stock geometry), 2 65:24 (v17 XPan geometry),
+3 5:4 (new, on the 1:1 id: same heights, width 5/4). Menu 3:2, 4:3, 5:4, 65:24. **Supersedes v31** (do not flash v31):
+the survey for v32 found two places v31 left wrong for 4:3 / 16:9 (below).
+New findings (static + emulation):
+- **Pipeline row 0x536a3200**: id 0 -> row 0, id 3 -> row 1, ids 1/2 assert (non-fatal: 0x536B93D0 prints and returns, §23) -> row 0. Nine
+  capture-side process functions (0x5350014c, 0x5350020c, 0x53501ad8, 0x53507168, SetupSroConfig 0x5350a058,
+  0x5350a41c, 0x5350ca00, 0x5350cb18, 0x535256cc) index [row][crop] config tables with it (pointers to structs with
+  sizes at +6..+0xc). Row 1 = the square configs, too small for 5:4 -> v32 returns row 0 for every id (as stock did
+  for 4:3 / 16:9, minus the assert).
+- **Display rect 0x535ee894** -> SI-like obj [+8]+0x6a0 (w, h, x, y in px << 12 on the 720x480 screen) per aspect and
+  crop 1.0 / 1.25 / 1.78 from a RAM table filled by 0x535f4910 (3:2 0x55357d40/7e24/7e78, 1:1 7d60/7da0/7e88,
+  16:9 7e98/7d00/7dc4 = **all zero** in GR III; 4:3 = not written). Probably the live-view / review frame. v32 stub:
+  3:2 stock, 4:3 / 5:4 / 65:24 from own tables (3:2 rects scaled, centred).
+- Maker-note AspectRatio code: ExtractImageAspectRatio 0x535ed43c maps 0 -> id 1, 1 -> 0, 2 -> 2, 3 -> 3 (Pentax
+  codes 4:3 / 3:2 / 16:9 / 1:1). Unchanged: 5:4 files carry "1:1", 65:24 files "16:9"; they read back to the right id.
+- Live view itself is processed as 3:2 (LiveViewProcessRecipe / VirtualWindowInfo call GetResolution with id 0).
+- UI still settings [+4]+0x7b6 (getter 0x53245f88) is an unrelated setting with the same offset (GetStyle 0x5317877c).
+v32 patch list: make_slots32.py docstring. Emulated: verify_v32.py ALL OK (changed words only at the listed sites;
+GetResolution 3:2 / 4:3 = v30, 65:24 6000x2216 .. 1920x712, 5:4 4992x4000 / 4000x3200 / 2800x2240 / 1600x1280 for
+every size and crop; row 0 for every id; nails; display rects; ratio + size class for all 40 sizes both orientations,
+old 1:1 / 16:9 sizes rejected; Crop frames; Resize; menu / toggle / strings / icons; AF; DigitalFilter crop exact;
+RAW dev 3:2 -> 3:2 / 4:3 / 5:4 / 65:24). verify_v26 ALL OK; verify_slots24 --v30: 3 expected FAILs (string ids
+0x390+, ICONBIN change = only icons 0x100 / 0x151); verify_v30: only its v29->v30 word-diff check.
+Not covered offline: what +0x6a0 drives on screen, JPEG / DNG encode at 4992 / 1600 widths, playback display.
+Before returning to stock: aspect 3:2 (stock asserts / wrong geometry on 1 and 2; id 3 would become 1:1).
+`work/films_v32/fwdc239b.bin` SHA-256 d5a9ff9d59226bd39ca3d0f254a9ec929860d2be1a3b62b1d31a6cea84600242.
+
+## 52. Camera: v32 live view wrong ratio and flickering; films v33 open-gate live view (built 2026-10-11, not yet camera-tested)
+User (v32 on the camera): "preview ratio is not correct, the screen is flicking"; asked to follow GR4-XPanUnlock
+(GR4-XPanUnlock, GR IV 1.11, 2.0.0). How XPanUnlock does it (decoded with its own tool, RTOS payload offset
+0x17D10 = 0x53000000): GetLiveViewStillAspect (LiveViewResolutionManager.cpp, 0x5388C7B8) maps aspect 0/1/2/3 to
+live-view mode 0/2/1/3 (3:2 / 4:3 / 16:9 / 1:1 windows); XPanUnlock points all four jump-table cases at mode 0
+(open gate) and replaces the live-view grid layer's draw (vtable 0x53E98C24 -> 0x53578848) with a stub that draws
+the grid and then 4 fills per aspect via the camera's fill routine 0x5323C588 ({ctx, x, y, w, h, colour}; 16 = half
+dim, 2 = white): two dim bars + two 2 px edge lines on the 720x480 screen. LiveViewController: grid off -> grid mode 2
+(no lines, frame only) and the layer shown; grid on -> mode + 3.
+**Cause in v32:** GR III still has the GR IV switch: 0x53669424 (and 0x53437174) map CommonProperty +0x7B6 via
+tables 0x53D553C8 / 0x53C1CDCC (02 01 03) to live-view mode 2 / 1 / 3; the GR III window code 0x53666330 implements
+only mode 3 (square). So v32's 4:3 / 65:24 ran half-configured 4:3 / 16:9 modes (flicker) and 5:4 got the 1:1 window.
+(The +0x6A0 rect of §51 is the AF / touch image area, not the live-view window: GR IV keeps the same aspect rects,
+640x480@40 for 4:3 etc., with XPanUnlock's open gate; read by 0x535BF7F4 AF frames, 0x532B12F0 touch mapping.)
+GR IV -> GR III addresses: grid draw 0x5339C3B0 (vtable 0x53C0AAB4), base draw 0x533AB9BC, grid set 0x5339C340, UI
+root / settings / aspect 0x5320AD88 / 0x5320B31C / 0x53245260, gfx 0x5320804C / 0x532081EC, fill 0x53208A2C
+(200 instructions identical to GR IV's), LiveViewController 0x53177518 (grid off beq 0x53177580 -> 0x53177530,
+join 0x53177534; grid set bl 0x531775D0).
+**v33** (make_slots33.py = v32 + patch_lv): both mode tables -> 00 00 00; grid draw stub + grid on / off hooks as
+XPanUnlock; frames 4:3 x 40..680, 5:4 x 60..660, 65:24 y 107..373 (crop-independent, as XPanUnlock). verify_v33
+ALL OK (only the 5 live-view words change below the extension; 0x53669424 returns 0 for every id, v32 0/2/1/3;
+draw stub per grid mode 0..4 x aspect; hooks). verify_v32 on v33: only its changed-words check fails (the 5 new
+words); verify_v26 ALL OK. `work/films_v33/fwdc239b.bin` SHA-256 8ab90008f589cd3f1e105151748bec5e84db3f00a6d15be427b81d46b7b873e2.
+
+## 53. Films v33b: Sony FL from the black-box a7C II model (built 2026-10-12, not yet camera-tested)
+User: "replace the FL filter with this more accurate one" (on v32; built on v33 because v32 must not be flashed, §52).
+- **Target.** `sony/sonysim.py` (method in `sony/A7C2_FINDINGS.md` §13). It is a 33^3 LUT: Sony scene-linear
+  Rec.2020 (as-shot WB, 1.0 = raw white, log2 shaper) -> FL sRGB. It was fitted directly on the camera's own FL
+  rendering, the full-size JpgFromRaw that each ARW embeds (= the HIF to 0.5 dE), of photo-v22b DSC06539 / DSC06541.
+  No Adobe data is involved.
+  - Fit: registration, flat pixels, trilinear least squares with a Laplacian prior, plus a grey-axis prior (weight 10).
+  - Why the grey prior: the monitor grey is never neutral in either shot (R/G 0.84-0.86), so without it the true
+    neutral axis was extrapolated (chroma up to 3.2). With it: <= 0.1, at an in-sample cost of 0.47 -> 0.49 dE.
+  - On the Sony's own ARW vs HIF (chart patches): 0.57 mean, against 2.82 for the Adobe A7 IV DCP (§40b).
+- **Link** (`work/films_v33b/link_bb.py`, as link2.py): both scenes are neutralised on the mid-grey ramp. The exposure
+  comes from grey Y: model input = 0.504 x Rec2020(GR L), so GR grey 0.18 -> 0.0907 (-3.46 EV re raw white).
+  It is baked as an sRGB-input cube for cube_fit (`sonyflbb_sRGB.cube`). No C matrix: the variant with C (sonyflbbc)
+  scored 6.33 / 4.69 below, with chroma 21 vs HIF 26-28, so C desaturates.
+- **Fit chain** `work/films_v33b/fit_flbb.sh` (cube_fit b4 n3 -> joint_fit -> lab_fit -> refit33b.py sectors), as
+  fit_fl4d.sh.
+  - GR model vs target, general / warm / CC / camera chart: 3.00 / 2.32 / 2.07 / 2.66 (sonyfl4d 1.75 / 0.72 / 1.24 /
+    1.99).
+  - The target is harder to express because it is non-smooth where the training charts never reached (it is
+    extrapolated there).
+  - On real GR scenes (preview33b.py, photo-v10 chart + photo-v13): GR model vs target 1.84 / 1.04 / 1.03 / 1.02;
+    old FL vs new FL about 3.6 dE.
+- **End to end** (predict33b.py = predict2.py; predicted GR JPG vs Sony HIF, mean dE2000, daylight / 5500 K):
+
+  | fit | mean dE2000 | chroma (HIF 27.6 / 25.4) |
+  |---|---|---|
+  | sonyfl4 (v22b) | 7.83 / 7.45 | |
+  | sonyfl4d (v33) | 5.88 / 5.44 | 23.6 / 24.4 |
+  | sonyflbb (v33b) | 5.82 / 5.57 | 25.9 / 27.3 |
+
+  Grey ramp G, daylight: v33b 0.06 / 0.47 / 0.78 / 0.86 vs HIF 0.07 / 0.49 / 0.79 / 0.87 (v33 0.04 / 0.40 / 0.80 /
+  0.89). So tone and chroma are clearly closer and mean colour error is equal. The rest is the two sensors seeing the
+  monitor's narrow-band primaries differently, common to every fit; this chart cannot separate it from the look.
+- **Build.** `work/films_v33b/build.sh` = v33 command with sonyfl -> work/films_v33b/fits/sonyflbb.json; toolchain
+  rebuilds v33 byte-identical (8ab90008).
+  - verify.sh: film suite on v33 and v33b with each one's film list: same 3 expected FAILs (icons, two string-getter
+    lines), the logs differ only in the two Sony FL R2Y lines.
+  - verify_v26 ALL OK.
+  - verify_v33 vs v32: its one changed-words check fails on 27 extra words 0x53dc2d38..0x53dc2da0 = Sony FL's
+    MultiAxial sector data in the pre-extension cave (film suite: "MultiAxial = own sectors" OK). Expected.
+- **Open.** The black-box target is least certain in deep shadows and outside the monitor gamut (preview: the target
+  shows a red cast on the near-black chart surround; the GR fit mostly ignores it). More A7C II FL ARWs of real
+  scenes (DRO Off) -> refit lookfit -> rerun fit_flbb.sh + build.sh.
+`work/films_v33b/fwdc239b.bin` SHA-256 5f39a83634c52dcdcbdeb7ee78d50ddb99afdfa73903359ece62e9ceee92cac0.

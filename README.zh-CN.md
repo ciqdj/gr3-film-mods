@@ -3,7 +3,7 @@
 [English](README.md) | **简体中文**
 
 为理光 GR III 固件 2.10 制作的自定义胶片风格（Kodak Ektar 100、Gold 200、Portra 400、Fujifilm Pro 400H、
-Kodak Vision3 250D）以及 RAW 降噪修改，全部通过离线修补官方升级文件实现。研究笔记见 `FINDINGS.md`（英文）。
+Kodak Vision3 250D）以及 RAW 降噪修改，全部通过离线修补官方升级文件实现。研究笔记见 `FINDINGS.md`（英文，开头有状态和版本列表；笔记已到胶片 v33b，已发布的构建工具到 v16）。Sony a7C II 管线笔记和黑盒 FL 模拟器见 `sony/`。
 
 ## 当前版本：胶片 v16（`work/films_v16/build.sh`，FINDINGS §23-§34d）
 

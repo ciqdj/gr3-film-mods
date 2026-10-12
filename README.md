@@ -4,7 +4,7 @@
 
 Custom film looks (Kodak Portra 400, Ektar 100, Gold 200, Fujifilm Pro 400H, Kodak Vision3 250D / 500T, Fujifilm
 Classic Neg) and RAW-NR changes for the Ricoh GR III firmware 2.10, built by patching the official update file offline.
-Research notes: `FINDINGS.md`.
+Research notes: `FINDINGS.md` (status and build list at the top; the notes run to films v33b, the published build tools to v16). Sony a7C II pipeline notes and the black-box FL simulator: `sony/`.
 
 ## Current build: films v16 (`work/films_v16/build.sh`, FINDINGS §23-§34d)
 
